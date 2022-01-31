@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class PuzzleScreen extends StatefulWidget {
   const PuzzleScreen({Key? key}) : super(key: key);
@@ -25,15 +26,17 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   }
 
   moveTile(int index) {
-    int whiteIndex = tiles.indexOf(16);
-    if (index - 1 == whiteIndex && index % 4 != 0 ||
-        index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
-        index - 4 == whiteIndex ||
-        index + 4 == whiteIndex) {
-      setState(() {
-        tiles[whiteIndex] = tiles[index];
-        tiles[index] = 16;
-      });
+    if (index >= 0 && index < 16) {
+      int whiteIndex = tiles.indexOf(16);
+      if (index - 1 == whiteIndex && index % 4 != 0 ||
+          index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
+          index - 4 == whiteIndex ||
+          index + 4 == whiteIndex) {
+        setState(() {
+          tiles[whiteIndex] = tiles[index];
+          tiles[index] = 16;
+        });
+      }
     }
   }
 
@@ -95,7 +98,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   @override
   void initState() {
     super.initState();
-    shuffle();
+    // shuffle();
     if (!kIsWeb) {
       setState(() {
         keyList = List.generate(16, (index) => GlobalKey());
@@ -116,24 +119,39 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           : AppBar(
               title: const Text('kinse'),
             )),
-      body: Center(
-        child: Column(
-          children: [
-            SizedBox(
-              width: 450,
-              height: 450,
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 4,
-                children: List.generate(tiles.length, (index) {
-                  return kIsWeb
-                      ? _buildWebTile(index)
-                      : _buildMobileTile(index);
-                }),
+      body: RawKeyboardListener(
+        focusNode: FocusNode(),
+        autofocus: true,
+        onKey: (RawKeyEvent event) async {
+          if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+            moveTile(tiles.indexOf(16) + 4);
+          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+            moveTile(tiles.indexOf(16) - 4);
+          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+            moveTile(tiles.indexOf(16) + 1);
+          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+            moveTile(tiles.indexOf(16) - 1);
+          }
+        },
+        child: Center(
+          child: Column(
+            children: [
+              SizedBox(
+                width: 450,
+                height: 450,
+                child: GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 4,
+                  children: List.generate(tiles.length, (index) {
+                    return kIsWeb
+                        ? _buildWebTile(index)
+                        : _buildMobileTile(index);
+                  }),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
