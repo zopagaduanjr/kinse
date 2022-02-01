@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -13,28 +14,49 @@ class PuzzleScreen extends StatefulWidget {
 }
 
 class _PuzzleScreenState extends State<PuzzleScreen> {
+  late List<GlobalKey> keyList;
+  late List<RenderBox> boxList;
   List<int> tiles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-  List<GlobalKey> keyList = [];
-  List<RenderBox> boxList = [];
+  List<int> sequence = [];
+  bool newPuzzle = true;
+  int moves = 0, parity = 0, rawMS = 0, loops = 0;
+  String elapsedTime = "";
+  final Stopwatch _stopwatch = Stopwatch();
 
   createRenderBox() {
     setState(() {
+      List<RenderBox> generatedBoxList = [];
       for (var element in keyList) {
-        boxList.add(element.currentContext!.findRenderObject() as RenderBox);
+        generatedBoxList
+            .add(element.currentContext!.findRenderObject() as RenderBox);
       }
+      boxList = generatedBoxList;
     });
   }
 
   moveTile(int index) {
-    if (index >= 0 && index < 16) {
-      int whiteIndex = tiles.indexOf(16);
-      if (index - 1 == whiteIndex && index % 4 != 0 ||
-          index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
-          index - 4 == whiteIndex ||
-          index + 4 == whiteIndex) {
+    if (index >= 0 && index < 16) {}
+    int whiteIndex = tiles.indexOf(16);
+    if (index - 1 == whiteIndex && index % 4 != 0 ||
+        index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
+        index - 4 == whiteIndex ||
+        index + 4 == whiteIndex) {
+      if (!_stopwatch.isRunning && newPuzzle) {
+        _stopwatch.start();
+      }
+      setState(() {
+        tiles[whiteIndex] = tiles[index];
+        tiles[index] = 16;
+        moves++;
+      });
+      if (newPuzzle &&
+          listEquals(
+              tiles, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])) {
+        _stopwatch.stop();
         setState(() {
-          tiles[whiteIndex] = tiles[index];
-          tiles[index] = 16;
+          newPuzzle = false;
+          elapsedTime =
+              "Elapsed Time: ${_stopwatch.elapsed.toString()} | Moves: $moves";
         });
       }
     }
@@ -71,13 +93,15 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   shuffle() {
     setState(() {
       tiles.shuffle();
-      int loop = 1;
+      loops++;
       Set solveable = isSolveable(tiles);
-      while (!solveable.first) {
+      while (!solveable.first || solveable.last > 30) {
         tiles.shuffle();
         solveable = isSolveable(tiles);
-        loop++;
+        loops++;
       }
+      parity = solveable.last;
+      sequence = List.from(tiles);
     });
   }
 
@@ -95,10 +119,23 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     }
   }
 
+  String millisecondsFormatter(int totalMilliseconds) {
+    int minutes = (totalMilliseconds / 100) ~/ 60;
+    int seconds = ((totalMilliseconds / 100) % 60).toInt();
+    int milliseconds = totalMilliseconds % 100;
+    return "$minutes:$seconds.$milliseconds";
+  }
+
+  timerApproach1() {
+    Timer.periodic(const Duration(milliseconds: 1), (timer) {
+      setState(() => rawMS++);
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    // shuffle();
+    shuffle();
     if (!kIsWeb) {
       setState(() {
         keyList = List.generate(16, (index) => GlobalKey());
@@ -114,11 +151,17 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: (kIsWeb
-          ? null
-          : AppBar(
-              title: const Text('kinse'),
-            )),
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(
+              Icons.volume_up,
+              color: Colors.blue,
+            ),
+          )
+        ],
+      ),
       body: RawKeyboardListener(
         focusNode: FocusNode(),
         autofocus: true,
@@ -135,21 +178,32 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         },
         child: Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(
-                width: 450,
-                height: 450,
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 4,
-                  children: List.generate(tiles.length, (index) {
-                    return kIsWeb
-                        ? _buildWebTile(index)
-                        : _buildMobileTile(index);
-                  }),
+              const SizedBox(height: 25),
+              Text("Parity: $parity $elapsedTime"),
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxWidth: 375,
+                    minHeight: 200,
+                  ),
+                  child: GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    scrollDirection: Axis.vertical,
+                    children: List.generate(tiles.length, (index) {
+                      return kIsWeb
+                          ? _buildWebTile(index)
+                          : _buildMobileTile(index);
+                    }),
+                  ),
                 ),
               ),
+              const SizedBox(height: 25),
+              Text("Sequence: ${sequence.toString()}\nLoops: $loops"),
+              const SizedBox(height: 25),
             ],
           ),
         ),
