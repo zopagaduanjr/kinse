@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "707553157821",
+    "project_id": "kinse-6c9f3",
+    "storage_bucket": "kinse-6c9f3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:707553157821:android:9397d73137f4bd293f0dd4",
+        "android_client_info": {
+          "package_name": "zalboi.kinse"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "707553157821-12fvuna2dc928cd1pmoi3l0lu13ebnio.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0J0LezZORRpBjrKdfUFIvR4ZWbWuV57M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "707553157821-12fvuna2dc928cd1pmoi3l0lu13ebnio.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

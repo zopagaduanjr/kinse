@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:kinse/model/Match.dart' as match_model;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -69,6 +71,15 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           newPuzzle = false;
           elapsedTime = _stopwatch.elapsed;
         });
+        match_model.Match result = match_model.Match(
+          name: "badong",
+          date: DateTime.now(),
+          millisecondDuration: elapsedTime.inMilliseconds,
+          moves: specificMoves,
+          parity: parity,
+          sequence: sequence,
+        );
+        FirebaseFirestore.instance.collection('matches').add(result.toJson());
       }
     }
   }
@@ -170,59 +181,65 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           )
         ],
       ),
-      body: RawKeyboardListener(
-        focusNode: FocusNode(),
-        autofocus: true,
-        onKey: (RawKeyEvent event) async {
-          if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
-            moveTile(tiles.indexOf(16) + 4);
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
-            moveTile(tiles.indexOf(16) - 4);
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
-            moveTile(tiles.indexOf(16) + 1);
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
-            moveTile(tiles.indexOf(16) - 1);
-          }
+      body: StreamBuilder(
+        stream: FirebaseFirestore.instance.collection('matches').snapshots(),
+        builder: (context, snapshot) {
+          return RawKeyboardListener(
+            focusNode: FocusNode(),
+            autofocus: true,
+            onKey: (RawKeyEvent event) async {
+              if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+                moveTile(tiles.indexOf(16) + 4);
+              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+                moveTile(tiles.indexOf(16) - 4);
+              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+                moveTile(tiles.indexOf(16) + 1);
+              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+                moveTile(tiles.indexOf(16) - 1);
+              }
+            },
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 50),
+                  Center(
+                    child: Text(
+                      '${_stopwatch.elapsed}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+                  Flexible(
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        maxWidth: 375,
+                        minHeight: 200,
+                      ),
+                      decoration:
+                          const BoxDecoration(color: Colors.transparent),
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        scrollDirection: Axis.vertical,
+                        itemCount: tiles.length,
+                        itemBuilder: (context, index) {
+                          return kIsWeb
+                              ? _buildWebTile(index)
+                              : _buildMobileTile(index);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 50),
+                ],
+              ),
+            ),
+          );
         },
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 50),
-              Center(
-                child: Text(
-                  '${_stopwatch.elapsed}',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-              const SizedBox(height: 25),
-              Flexible(
-                child: Container(
-                  constraints: const BoxConstraints(
-                    maxWidth: 375,
-                    minHeight: 200,
-                  ),
-                  decoration: const BoxDecoration(color: Colors.transparent),
-                  child: GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    scrollDirection: Axis.vertical,
-                    itemCount: tiles.length,
-                    itemBuilder: (context, index) {
-                      return kIsWeb
-                          ? _buildWebTile(index)
-                          : _buildMobileTile(index);
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 50),
-            ],
-          ),
-        ),
       ),
     );
   }
