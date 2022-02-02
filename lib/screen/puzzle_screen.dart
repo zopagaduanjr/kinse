@@ -17,10 +17,11 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   late List<GlobalKey> keyList;
   late List<RenderBox> boxList;
   List<int> tiles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+  List<int> specificMoves = [];
   List<int> sequence = [];
   bool newPuzzle = true;
-  int moves = 0, parity = 0, rawMS = 0, loops = 0;
-  String elapsedTime = "";
+  int parity = 0, rawMS = 0, loops = 0;
+  Duration elapsedTime = const Duration();
   final Stopwatch _stopwatch = Stopwatch();
 
   createRenderBox() {
@@ -34,6 +35,17 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     });
   }
 
+  runStopwatchHackishCallback() {
+    _stopwatch.reset();
+    _stopwatch.start();
+    Timer.periodic(const Duration(milliseconds: 15), (timer) {
+      setState(() {});
+      if (!_stopwatch.isRunning) {
+        timer.cancel();
+      }
+    });
+  }
+
   moveTile(int index) {
     if (index >= 0 && index < 16) {}
     int whiteIndex = tiles.indexOf(16);
@@ -42,12 +54,12 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         index - 4 == whiteIndex ||
         index + 4 == whiteIndex) {
       if (!_stopwatch.isRunning && newPuzzle) {
-        _stopwatch.start();
+        runStopwatchHackishCallback();
       }
       setState(() {
         tiles[whiteIndex] = tiles[index];
         tiles[index] = 16;
-        moves++;
+        specificMoves.add(index);
       });
       if (newPuzzle &&
           listEquals(
@@ -55,8 +67,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         _stopwatch.stop();
         setState(() {
           newPuzzle = false;
-          elapsedTime =
-              "Elapsed Time: ${_stopwatch.elapsed.toString()} | Moves: $moves";
+          elapsedTime = _stopwatch.elapsed;
         });
       }
     }
@@ -155,10 +166,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         actions: [
           IconButton(
             onPressed: () {},
-            icon: const Icon(
-              Icons.volume_up,
-              color: Colors.blue,
-            ),
+            icon: const Icon(Icons.settings),
           )
         ],
       ),
@@ -180,30 +188,38 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 50),
+              Center(
+                child: Text(
+                  '${_stopwatch.elapsed}',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
               const SizedBox(height: 25),
-              Text("Parity: $parity $elapsedTime"),
               Flexible(
                 child: Container(
                   constraints: const BoxConstraints(
                     maxWidth: 375,
                     minHeight: 200,
                   ),
-                  child: GridView.count(
-                    crossAxisCount: 4,
+                  decoration: const BoxDecoration(color: Colors.transparent),
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4),
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     scrollDirection: Axis.vertical,
-                    children: List.generate(tiles.length, (index) {
+                    itemCount: tiles.length,
+                    itemBuilder: (context, index) {
                       return kIsWeb
                           ? _buildWebTile(index)
                           : _buildMobileTile(index);
-                    }),
+                    },
                   ),
                 ),
               ),
-              const SizedBox(height: 25),
-              Text("Sequence: ${sequence.toString()}\nLoops: $loops"),
-              const SizedBox(height: 25),
+              const SizedBox(height: 50),
             ],
           ),
         ),
@@ -214,6 +230,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   _buildMobileTile(int index) {
     return Listener(
       key: keyList[index],
+      onPointerDown: (details) => moveTile(index),
       onPointerMove: (details) {
         final result = BoxHitTestResult();
         if (boxList[15].hitTest(
@@ -299,7 +316,8 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         }
       },
       child: Container(
-        color: Colors.transparent,
+        margin: EdgeInsets.all(0),
+        color: tiles[index] == 16 ? Colors.transparent : Colors.white,
         child: Center(
           child: Text(
             "${tiles[index] == 16 ? "" : tiles[index]}",
