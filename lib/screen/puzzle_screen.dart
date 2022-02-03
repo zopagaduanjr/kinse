@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:kinse/model/Match.dart' as match_model;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:kinse/model/Match.dart';
+
+import 'leaderboards_screen.dart';
 
 class PuzzleScreen extends StatefulWidget {
   const PuzzleScreen({Key? key}) : super(key: key);
@@ -18,6 +20,7 @@ class PuzzleScreen extends StatefulWidget {
 class _PuzzleScreenState extends State<PuzzleScreen> {
   late List<GlobalKey> keyList;
   late List<RenderBox> boxList;
+  List<int> tilesF = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
   List<int> tiles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
   List<int> specificMoves = [];
   List<int> sequence = [];
@@ -38,7 +41,9 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   }
 
   runStopwatchHackishCallback() {
-    _stopwatch.reset();
+    if (specificMoves.isEmpty) {
+      _stopwatch.reset();
+    }
     _stopwatch.start();
     Timer.periodic(const Duration(milliseconds: 15), (timer) {
       setState(() {});
@@ -63,16 +68,14 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         tiles[index] = 16;
         specificMoves.add(index);
       });
-      if (newPuzzle &&
-          listEquals(
-              tiles, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])) {
+      if (newPuzzle && listEquals(tiles, tilesF)) {
         _stopwatch.stop();
         setState(() {
           newPuzzle = false;
           elapsedTime = _stopwatch.elapsed;
         });
-        match_model.Match result = match_model.Match(
-          name: "badong",
+        Match result = Match(
+          name: "badong2",
           date: DateTime.now(),
           millisecondDuration: elapsedTime.inMilliseconds,
           moves: specificMoves,
@@ -141,13 +144,6 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     }
   }
 
-  String millisecondsFormatter(int totalMilliseconds) {
-    int minutes = (totalMilliseconds / 100) ~/ 60;
-    int seconds = ((totalMilliseconds / 100) % 60).toInt();
-    int milliseconds = totalMilliseconds % 100;
-    return "$minutes:$seconds.$milliseconds";
-  }
-
   timerApproach1() {
     Timer.periodic(const Duration(milliseconds: 1), (timer) {
       setState(() => rawMS++);
@@ -174,72 +170,93 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.dashboard_customize, color: Colors.black),
+          tooltip: 'Home',
+        ),
         actions: [
           IconButton(
             onPressed: () {},
+            icon: const Icon(Icons.sports_kabaddi),
+            tooltip: 'Find Match',
+          ),
+          IconButton(
+            onPressed: () {
+              _stopwatch.stop();
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation1, animation2) =>
+                      const LeaderBoardsScreen(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            },
+            icon: const Icon(Icons.leaderboard),
+            tooltip: 'Leaderboards',
+          ),
+          IconButton(
+            onPressed: () {},
             icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
           )
         ],
       ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('matches').snapshots(),
-        builder: (context, snapshot) {
-          return RawKeyboardListener(
-            focusNode: FocusNode(),
-            autofocus: true,
-            onKey: (RawKeyEvent event) async {
-              if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
-                moveTile(tiles.indexOf(16) + 4);
-              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
-                moveTile(tiles.indexOf(16) - 4);
-              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
-                moveTile(tiles.indexOf(16) + 1);
-              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
-                moveTile(tiles.indexOf(16) - 1);
-              }
-            },
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 50),
-                  Center(
-                    child: Text(
-                      '${_stopwatch.elapsed}',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  Flexible(
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        maxWidth: 375,
-                        minHeight: 200,
-                      ),
-                      decoration:
-                          const BoxDecoration(color: Colors.transparent),
-                      child: GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 4),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        scrollDirection: Axis.vertical,
-                        itemCount: tiles.length,
-                        itemBuilder: (context, index) {
-                          return kIsWeb
-                              ? _buildWebTile(index)
-                              : _buildMobileTile(index);
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                ],
-              ),
-            ),
-          );
+      body: RawKeyboardListener(
+        focusNode: FocusNode(),
+        autofocus: true,
+        onKey: (RawKeyEvent event) async {
+          if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+            moveTile(tiles.indexOf(16) + 4);
+          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+            moveTile(tiles.indexOf(16) - 4);
+          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+            moveTile(tiles.indexOf(16) + 1);
+          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+            moveTile(tiles.indexOf(16) - 1);
+          }
         },
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 50),
+              Center(
+                child: Text(
+                  '${_stopwatch.elapsed}',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 25),
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxWidth: 375,
+                    minHeight: 200,
+                  ),
+                  decoration: const BoxDecoration(color: Colors.transparent),
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    scrollDirection: Axis.vertical,
+                    itemCount: tiles.length,
+                    itemBuilder: (context, index) {
+                      return kIsWeb
+                          ? _buildWebTile(index)
+                          : _buildMobileTile(index);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 50),
+            ],
+          ),
+        ),
       ),
     );
   }
