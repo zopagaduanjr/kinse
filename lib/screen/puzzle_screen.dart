@@ -27,6 +27,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   bool newPuzzle = true;
   int parity = 0, rawMS = 0, loops = 0;
   Duration elapsedTime = const Duration();
+  FirebaseFirestore firestoreInstance = FirebaseFirestore.instance;
   final Stopwatch _stopwatch = Stopwatch();
 
   createRenderBox() {
@@ -75,23 +76,23 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           elapsedTime = _stopwatch.elapsed;
         });
         Match result = Match(
-          name: "badong2",
+          name: "badong4",
           date: DateTime.now(),
           millisecondDuration: elapsedTime.inMilliseconds,
           moves: specificMoves,
           parity: parity,
           sequence: sequence,
         );
-        FirebaseFirestore.instance.collection('matches').add(result.toJson());
+        firestoreInstance.collection('matches').add(result.toJson());
       }
     }
   }
 
   Set isSolveable(List<int> puzzle) {
-    int parity = 0, row = 5, blankRow = 0;
+    int inversionCount = 0, row = 5, blankRow = 0;
     int gridWidth = sqrt(puzzle.length).toInt();
 
-    for (int i = 0; i < puzzle.length - 1; i++) {
+    for (int i = 0; i < puzzle.length; i++) {
       if (i % gridWidth == 0) {
         row--;
       }
@@ -100,18 +101,18 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
       }
       for (int j = i + 1; j < puzzle.length; j++) {
         if (puzzle[i] > puzzle[j] && puzzle[j] != 16 && puzzle[i] != 16) {
-          parity++;
+          inversionCount++;
         }
       }
     }
     if (gridWidth.isEven) {
       if (blankRow.isEven) {
-        return {parity.isOdd, parity};
+        return {inversionCount.isOdd, inversionCount};
       } else {
-        return {parity.isEven, parity};
+        return {inversionCount.isEven, inversionCount};
       }
     } else {
-      return {parity.isEven, parity};
+      return {inversionCount.isEven, inversionCount};
     }
   }
 
@@ -120,7 +121,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
       tiles.shuffle();
       loops++;
       Set solveable = isSolveable(tiles);
-      while (!solveable.first || solveable.last > 30) {
+      while (solveable.first == false || solveable.last > 30) {
         tiles.shuffle();
         solveable = isSolveable(tiles);
         loops++;
@@ -188,7 +189,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation1, animation2) =>
-                      const LeaderBoardsScreen(),
+                      LeaderBoardsScreen(firestoreInstance: firestoreInstance),
                   transitionDuration: Duration.zero,
                   reverseTransitionDuration: Duration.zero,
                 ),
