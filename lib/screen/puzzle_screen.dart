@@ -28,65 +28,8 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   int parity = 0, rawMS = 0, loops = 0;
   Duration elapsedTime = const Duration();
   FirebaseFirestore firestoreInstance = FirebaseFirestore.instance;
+  Timer? _callbackTimer;
   final Stopwatch _stopwatch = Stopwatch();
-
-  createRenderBox() {
-    setState(() {
-      List<RenderBox> generatedBoxList = [];
-      for (var element in keyList) {
-        generatedBoxList
-            .add(element.currentContext!.findRenderObject() as RenderBox);
-      }
-      boxList = generatedBoxList;
-    });
-  }
-
-  runStopwatchHackishCallback() {
-    if (specificMoves.isEmpty) {
-      _stopwatch.reset();
-    }
-    _stopwatch.start();
-    Timer.periodic(const Duration(milliseconds: 15), (timer) {
-      setState(() {});
-      if (!_stopwatch.isRunning) {
-        timer.cancel();
-      }
-    });
-  }
-
-  moveTile(int index) {
-    if (index >= 0 && index < 16) {}
-    int whiteIndex = tiles.indexOf(16);
-    if (index - 1 == whiteIndex && index % 4 != 0 ||
-        index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
-        index - 4 == whiteIndex ||
-        index + 4 == whiteIndex) {
-      if (!_stopwatch.isRunning && newPuzzle) {
-        runStopwatchHackishCallback();
-      }
-      setState(() {
-        tiles[whiteIndex] = tiles[index];
-        tiles[index] = 16;
-        specificMoves.add(index);
-      });
-      if (newPuzzle && listEquals(tiles, tilesF)) {
-        _stopwatch.stop();
-        setState(() {
-          newPuzzle = false;
-          elapsedTime = _stopwatch.elapsed;
-        });
-        Match result = Match(
-          name: "badong4",
-          date: DateTime.now(),
-          millisecondDuration: elapsedTime.inMilliseconds,
-          moves: specificMoves,
-          parity: parity,
-          sequence: sequence,
-        );
-        firestoreInstance.collection('matches').add(result.toJson());
-      }
-    }
-  }
 
   Set isSolveable(List<int> puzzle) {
     int inversionCount = 0, row = 5, blankRow = 0;
@@ -113,6 +56,77 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
       }
     } else {
       return {inversionCount.isEven, inversionCount};
+    }
+  }
+
+  String stopwatchFormatter(Duration duration) {
+    return duration.toString().substring(2, 11);
+  }
+
+  createRenderBox() {
+    setState(() {
+      List<RenderBox> generatedBoxList = [];
+      for (var element in keyList) {
+        generatedBoxList
+            .add(element.currentContext!.findRenderObject() as RenderBox);
+      }
+      boxList = generatedBoxList;
+    });
+  }
+
+  runStopwatchHackishCallback() {
+    if (specificMoves.isEmpty) {
+      _stopwatch.reset();
+    }
+    _stopwatch.start();
+    setState(() {
+      _callbackTimer =
+          Timer.periodic(const Duration(milliseconds: 15), (timer) {
+        setState(() {});
+        if (!_stopwatch.isRunning) {
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  moveTile(int index) {
+    if (index >= 0 && index < 16) {
+      int whiteIndex = tiles.indexOf(16);
+      if (index - 1 == whiteIndex && index % 4 != 0 ||
+          index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
+          index - 4 == whiteIndex ||
+          index + 4 == whiteIndex) {
+        if (!_stopwatch.isRunning && newPuzzle) {
+          runStopwatchHackishCallback();
+        }
+        setState(() {
+          tiles[whiteIndex] = tiles[index];
+          tiles[index] = 16;
+          specificMoves.add(index);
+        });
+        if (newPuzzle && listEquals(tiles, tilesF)) {
+          _stopwatch.stop();
+          setState(() {
+            newPuzzle = false;
+            elapsedTime = _stopwatch.elapsed;
+          });
+          Match result = Match(
+            name: "badong4",
+            date: DateTime.now(),
+            millisecondDuration: elapsedTime.inMilliseconds,
+            moves: specificMoves,
+            parity: parity,
+            sequence: sequence,
+          );
+          try {
+            firestoreInstance.collection('matches').add(result.toJson());
+          } catch (error) {
+            //hopefully gets called when 50k writes has been reached.
+            print(error.toString());
+          }
+        }
+      }
     }
   }
 
@@ -168,6 +182,13 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   }
 
   @override
+  void dispose() {
+    _callbackTimer?.cancel();
+    _stopwatch.stop();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -185,6 +206,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
           IconButton(
             onPressed: () {
               _stopwatch.stop();
+              _callbackTimer?.cancel();
               Navigator.push(
                 context,
                 PageRouteBuilder(
@@ -226,7 +248,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
               const SizedBox(height: 50),
               Center(
                 child: Text(
-                  '${_stopwatch.elapsed}',
+                  stopwatchFormatter(_stopwatch.elapsed),
                   style: const TextStyle(fontSize: 16),
                 ),
               ),

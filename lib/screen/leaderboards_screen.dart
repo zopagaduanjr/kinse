@@ -19,8 +19,7 @@ class LeaderBoardsScreen extends StatefulWidget {
 }
 
 class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
-  late Stream<QuerySnapshot> matchesStream =
-      widget.firestoreInstance.collection('matches').snapshots();
+  late Stream<QuerySnapshot> matchesStream;
   late StreamSubscription<QuerySnapshot> streamSubscription;
   bool leaderboardAscending = true;
   int leaderboardColumnIndex = 0;
@@ -34,14 +33,23 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
   }
 
   void listenMatches() {
-    streamSubscription = matchesStream.listen((QuerySnapshot snapshot) {
-      List<Match> fetchedMatches = snapshot.docs
-          .map((e) => Match.fromJson(e.data() as Map<String, dynamic>))
-          .toList();
+    try {
       setState(() {
-        historicalMatches = fetchedMatches;
+        matchesStream =
+            widget.firestoreInstance.collection('matches').snapshots();
+        streamSubscription = matchesStream.listen((QuerySnapshot snapshot) {
+          List<Match> fetchedMatches = snapshot.docs
+              .map((e) => Match.fromJson(e.data() as Map<String, dynamic>))
+              .toList();
+          setState(() {
+            historicalMatches = fetchedMatches;
+          });
+        });
       });
-    });
+    } catch (error) {
+      //hopefully gets called when 50k reads has been reached.
+      print(error.toString());
+    }
   }
 
   @override
