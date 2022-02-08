@@ -112,7 +112,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
             elapsedTime = _stopwatch.elapsed;
           });
           Match result = Match(
-            name: "badong4",
+            name: "badong8",
             date: DateTime.now(),
             millisecondDuration: elapsedTime.inMilliseconds,
             moves: specificMoves,
@@ -243,16 +243,14 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         },
         child: Center(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 50),
-              Center(
+              Padding(
+                padding: const EdgeInsets.only(top: 28, bottom: 16),
                 child: Text(
                   stopwatchFormatter(_stopwatch.elapsed),
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
-              const SizedBox(height: 25),
               Flexible(
                 child: Container(
                   constraints: const BoxConstraints(
@@ -260,19 +258,23 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                     minHeight: 200,
                   ),
                   decoration: const BoxDecoration(color: Colors.transparent),
-                  child: GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    scrollDirection: Axis.vertical,
-                    itemCount: tiles.length,
-                    itemBuilder: (context, index) {
-                      return kIsWeb
-                          ? _buildWebTile(index)
-                          : _buildMobileTile(index);
-                    },
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
+                    child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      scrollDirection: Axis.vertical,
+                      itemCount: tiles.length,
+                      itemBuilder: (context, index) {
+                        return kIsWeb
+                            ? _buildWebTile(index)
+                            : _buildMobileTile(index);
+                      },
+                    ),
                   ),
                 ),
               ),

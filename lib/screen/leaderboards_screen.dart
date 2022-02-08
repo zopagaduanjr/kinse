@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:kinse/model/Match.dart';
 import 'package:kinse/widget/match_detail_widget.dart';
 
@@ -23,7 +22,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
   late StreamSubscription<QuerySnapshot> streamSubscription;
   bool leaderboardAscending = true;
   int leaderboardColumnIndex = 0;
-
+  Match? selectedMatch;
   List<Match> historicalMatches = [];
 
   String millisecondsFormatter(int totalMilliseconds) {
@@ -32,7 +31,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
     return "$minutes:$seconds";
   }
 
-  void listenMatches() {
+  listenMatches() {
     try {
       setState(() {
         matchesStream =
@@ -93,69 +92,111 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
         ],
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 50),
-          const Text('Leaderboards'),
-          const SizedBox(height: 25),
-          Center(
-            child: SingleChildScrollView(
-              child: DataTable(
-                showCheckboxColumn: false,
-                sortAscending: leaderboardAscending,
-                sortColumnIndex: leaderboardColumnIndex,
-                columns: [
-                  const DataColumn(label: Text('Name')),
-                  DataColumn(
-                    label: const Text('Time'),
-                    onSort: (index, ascending) {
-                      setState(() {
-                        leaderboardColumnIndex = index;
-                        leaderboardAscending = ascending;
-                        historicalMatches.sort((a, b) => a.millisecondDuration
-                            .compareTo(b.millisecondDuration));
-                        if (ascending) {
-                          historicalMatches =
-                              historicalMatches.reversed.toList();
-                        }
-                      });
-                    },
+          const Padding(
+            padding: EdgeInsets.only(top: 28, bottom: 16),
+            child: Text('Leaderboards'),
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Container(
+                  alignment: Alignment.topCenter,
+                  child: SingleChildScrollView(
+                    controller: ScrollController(),
+                    child: DataTable(
+                      showCheckboxColumn: false,
+                      sortAscending: leaderboardAscending,
+                      sortColumnIndex: leaderboardColumnIndex,
+                      showBottomBorder: true,
+                      columns: [
+                        const DataColumn(label: Text('Name')),
+                        DataColumn(
+                          label: const Text('Time'),
+                          onSort: (index, ascending) {
+                            setState(() {
+                              leaderboardColumnIndex = index;
+                              leaderboardAscending = ascending;
+                              historicalMatches.sort((a, b) => a
+                                  .millisecondDuration
+                                  .compareTo(b.millisecondDuration));
+                              if (ascending) {
+                                historicalMatches =
+                                    historicalMatches.reversed.toList();
+                              }
+                            });
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('Moves'),
+                          onSort: (index, ascending) {
+                            setState(() {
+                              leaderboardColumnIndex = index;
+                              leaderboardAscending = ascending;
+                              historicalMatches.sort((a, b) =>
+                                  a.moves.length.compareTo(b.moves.length));
+                              if (ascending) {
+                                historicalMatches =
+                                    historicalMatches.reversed.toList();
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                      rows: historicalMatches.map((e) {
+                        return DataRow(
+                          selected: (selectedMatch == e),
+                          onSelectChanged: (selected) async {
+                            if (kIsWeb) {
+                              if (selectedMatch != e) {
+                                setState(() {
+                                  selectedMatch = e;
+                                });
+                              } else {
+                                setState(() {
+                                  selectedMatch = null;
+                                });
+                              }
+                            } else {
+                              await showModalBottomSheet(
+                                  context: context,
+                                  isDismissible: true,
+                                  builder: (context) {
+                                    return Scaffold(
+                                      body: MatchDetailWidget(match: e),
+                                    );
+                                  });
+                            }
+                          },
+                          cells: [
+                            DataCell(Text(e.name)),
+                            DataCell(Text(
+                                millisecondsFormatter(e.millisecondDuration))),
+                            DataCell(Text(e.moves.length.toString())),
+                          ],
+                        );
+                      }).toList(),
+                    ),
                   ),
-                  DataColumn(
-                    label: const Text('Moves'),
-                    onSort: (index, ascending) {
-                      setState(() {
-                        leaderboardColumnIndex = index;
-                        leaderboardAscending = ascending;
-                        historicalMatches.sort(
-                            (a, b) => a.moves.length.compareTo(b.moves.length));
-                        if (ascending) {
-                          historicalMatches =
-                              historicalMatches.reversed.toList();
-                        }
-                      });
-                    },
-                  ),
-                ],
-                rows: historicalMatches.map((e) {
-                  return DataRow(
-                    onSelectChanged: (selectedMatch) async {
-                      await showModalBottomSheet(
-                          context: context,
-                          isDismissible: true,
-                          builder: (context) {
-                            return MatchDetailWidget(match: e);
-                          });
-                    },
-                    cells: [
-                      DataCell(Text(e.name)),
-                      DataCell(
-                          Text(millisecondsFormatter(e.millisecondDuration))),
-                      DataCell(Text(e.moves.length.toString())),
-                    ],
-                  );
-                }).toList(),
-              ),
+                ),
+                (selectedMatch != null
+                    ? Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: SizedBox(
+                            width: 350,
+                            child: MatchDetailWidget(
+                              match: selectedMatch!,
+                              key: UniqueKey(),
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink()),
+              ],
             ),
           ),
         ],
