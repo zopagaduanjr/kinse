@@ -6,7 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:kinse/model/Match.dart';
+import 'package:kinse/model/Game.dart';
+import 'package:kinse/model/Puzzle.dart';
 
 import 'leaderboards_screen.dart';
 
@@ -23,12 +24,20 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   List<int> tilesF = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
   List<int> tiles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
   List<int> specificMoves = [];
-  List<int> sequence = [];
+  List<String> gameOptions = [
+    'Single',
+    'Average of 5',
+    'Average of 10',
+    'Average of 12',
+    'Average of 50',
+    'Average of 100',
+  ];
+  List<Puzzle> generatedPuzzles = [];
   bool newPuzzle = true;
-  int parity = 0, rawMS = 0, loops = 0;
-  Duration elapsedTime = const Duration();
+  int selectedGameOptionIndex = 0, currentPuzzleIndex = 0;
   FirebaseFirestore firestoreInstance = FirebaseFirestore.instance;
   Timer? _callbackTimer;
+  DateTime? dateStarted;
   final Stopwatch _stopwatch = Stopwatch();
 
   Set isSolveable(List<int> puzzle) {
@@ -63,6 +72,49 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     return duration.toString().substring(2, 11);
   }
 
+  String millisecondsFormatter(int totalMilliseconds) {
+    int minutes = (totalMilliseconds / 1000) ~/ 60;
+    String seconds = ((totalMilliseconds / 1000) % 60).toStringAsFixed(3);
+    return "${minutes.toString().padLeft(2, '0')}:${seconds.padLeft(6, '0')}";
+  }
+
+  Puzzle generatePuzzle(int order) {
+    List<int> newSequence = List.from(tilesF);
+    int newLoop = 0, newParity = 0;
+    newSequence.shuffle();
+    newLoop++;
+    Set solveable = isSolveable(newSequence);
+    while (solveable.first == false || solveable.last > 30) {
+      newSequence.shuffle();
+      solveable = isSolveable(newSequence);
+      newLoop++;
+    }
+    newParity = solveable.last;
+    return Puzzle(
+      order: order,
+      parity: newParity,
+      loops: newLoop,
+      sequence: newSequence,
+    );
+  }
+
+  setupGame(int gameIndex) {
+    _stopwatch.stop();
+    _stopwatch.reset();
+    List<int> numberGames = [1, 5, 10, 12, 50, 100];
+    List<Puzzle> setupPuzzles = [];
+    for (int i = 1; i < numberGames[gameIndex] + 1; i++) {
+      setupPuzzles.add(generatePuzzle(i));
+    }
+    setState(() {
+      generatedPuzzles = setupPuzzles;
+      tiles = List.from(generatedPuzzles.first.sequence);
+      newPuzzle = true;
+      currentPuzzleIndex = 0;
+      specificMoves.clear();
+    });
+  }
+
   createRenderBox() {
     setState(() {
       List<RenderBox> generatedBoxList = [];
@@ -74,15 +126,15 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     });
   }
 
-  runStopwatchHackishCallback() {
-    if (specificMoves.isEmpty) {
-      _stopwatch.reset();
-    }
+  runStopwatch() {
     _stopwatch.start();
     setState(() {
+      dateStarted = DateTime.now();
       _callbackTimer =
           Timer.periodic(const Duration(milliseconds: 15), (timer) {
-        setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
         if (!_stopwatch.isRunning) {
           timer.cancel();
         }
@@ -91,58 +143,73 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   }
 
   moveTile(int index) {
-    if (index >= 0 && index < 16) {
+    if (index >= 0 && index < 16 && newPuzzle) {
       int whiteIndex = tiles.indexOf(16);
       if (index - 1 == whiteIndex && index % 4 != 0 ||
           index + 1 == whiteIndex && (index + 1) % 4 != 0 ||
           index - 4 == whiteIndex ||
           index + 4 == whiteIndex) {
-        if (!_stopwatch.isRunning && newPuzzle) {
-          runStopwatchHackishCallback();
+        if (!_stopwatch.isRunning) {
+          runStopwatch();
         }
         setState(() {
           tiles[whiteIndex] = tiles[index];
           tiles[index] = 16;
           specificMoves.add(index);
         });
-        if (newPuzzle && listEquals(tiles, tilesF)) {
+        if (listEquals(tiles, tilesF)) {
           _stopwatch.stop();
+          List<int> movesMade = List.from(specificMoves);
           setState(() {
-            newPuzzle = false;
-            elapsedTime = _stopwatch.elapsed;
+            generatedPuzzles[currentPuzzleIndex].millisecondDuration =
+                _stopwatch.elapsedMilliseconds;
+            generatedPuzzles[currentPuzzleIndex].dateStarted = dateStarted;
+            generatedPuzzles[currentPuzzleIndex].moves = movesMade;
+            generatedPuzzles[currentPuzzleIndex].tps =
+                movesMade.length / (_stopwatch.elapsedMilliseconds / 1000);
+            if (generatedPuzzles.length > currentPuzzleIndex + 1) {
+              setState(() {
+                currentPuzzleIndex++;
+                tiles =
+                    List.from(generatedPuzzles[currentPuzzleIndex].sequence);
+                specificMoves.clear();
+                _stopwatch.reset();
+              });
+            } else {
+              setState(() {
+                newPuzzle = false;
+              });
+              var gameDoc = firestoreInstance.collection('games').doc();
+              double totalTime = 0;
+              for (var puzzle in generatedPuzzles) {
+                totalTime = totalTime + puzzle.millisecondDuration!;
+                setState(() {
+                  puzzle.gameID = gameDoc.id;
+                  puzzle.name = "badong17";
+                });
+              }
+              Game game = Game(
+                id: gameDoc.id,
+                name: 'badong17',
+                gameType: generatedPuzzles.length,
+                dateSubmitted: DateTime.now(),
+                averageTime: totalTime / generatedPuzzles.length,
+                puzzles: generatedPuzzles,
+              );
+              try {
+                firestoreInstance
+                    .collection('games')
+                    .doc(gameDoc.id)
+                    .set(game.toJson());
+              } catch (error) {
+                //hopefully gets called when 50k writes has been reached.
+                print(error.toString());
+              }
+            }
           });
-          Match result = Match(
-            name: "badong8",
-            date: DateTime.now(),
-            millisecondDuration: elapsedTime.inMilliseconds,
-            moves: specificMoves,
-            parity: parity,
-            sequence: sequence,
-          );
-          try {
-            firestoreInstance.collection('matches').add(result.toJson());
-          } catch (error) {
-            //hopefully gets called when 50k writes has been reached.
-            print(error.toString());
-          }
         }
       }
     }
-  }
-
-  shuffle() {
-    setState(() {
-      tiles.shuffle();
-      loops++;
-      Set solveable = isSolveable(tiles);
-      while (solveable.first == false || solveable.last > 30) {
-        tiles.shuffle();
-        solveable = isSolveable(tiles);
-        loops++;
-      }
-      parity = solveable.last;
-      sequence = List.from(tiles);
-    });
   }
 
   easyShuffle() {
@@ -159,16 +226,10 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     }
   }
 
-  timerApproach1() {
-    Timer.periodic(const Duration(milliseconds: 1), (timer) {
-      setState(() => rawMS++);
-    });
-  }
-
   @override
   void initState() {
     super.initState();
-    shuffle();
+    setupGame(0);
     if (!kIsWeb) {
       setState(() {
         keyList = List.generate(16, (index) => GlobalKey());
@@ -241,9 +302,21 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
             moveTile(tiles.indexOf(16) - 1);
           }
         },
-        child: Center(
+        child: SingleChildScrollView(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Container(),
+              Padding(
+                padding: const EdgeInsets.only(top: 35),
+                child: _buildGameModeButton(),
+              ),
+              (selectedGameOptionIndex > 0
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text("Game ${currentPuzzleIndex + 1}"),
+                    )
+                  : const SizedBox.shrink()),
               Padding(
                 padding: const EdgeInsets.only(top: 28, bottom: 16),
                 child: Text(
@@ -251,7 +324,8 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
-              Flexible(
+              GestureDetector(
+                onVerticalDragUpdate: (_) {},
                 child: Container(
                   constraints: const BoxConstraints(
                     maxWidth: 375,
@@ -278,7 +352,10 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 50),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 35),
+                child: _buildPuzzleStats(),
+              ),
             ],
           ),
         ),
@@ -397,6 +474,51 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
             "${tiles[index] == 16 ? "" : tiles[index]}",
           ),
         ),
+      ),
+    );
+  }
+
+  _buildGameModeButton() {
+    return TextButton(
+      onPressed: () {
+        setState(() {
+          selectedGameOptionIndex =
+              selectedGameOptionIndex < 5 ? selectedGameOptionIndex + 1 : 0;
+        });
+        setupGame(selectedGameOptionIndex);
+      },
+      child: Text("Game Mode: ${gameOptions[selectedGameOptionIndex]}"),
+    );
+  }
+
+  _buildPuzzleStats() {
+    return Container(
+      constraints: const BoxConstraints(
+        maxWidth: 375,
+        maxHeight: 375,
+      ),
+      child: ListView.separated(
+        itemCount: generatedPuzzles
+            .where((element) => element.millisecondDuration != null)
+            .length,
+        shrinkWrap: true,
+        separatorBuilder: (BuildContext context, int index) => const Divider(),
+        itemBuilder: (context, index) {
+          index = generatedPuzzles
+                  .where((element) => element.millisecondDuration != null)
+                  .length -
+              1 -
+              index;
+          List<Puzzle> finishedPuzzles = generatedPuzzles
+              .where((element) => element.millisecondDuration != null)
+              .toList();
+          return ListTile(
+            title: Text(
+                'Game ${finishedPuzzles[index].order} - ${millisecondsFormatter(finishedPuzzles[index].millisecondDuration!)}'),
+            subtitle: Text(
+                'Moves: ${finishedPuzzles[index].moves!.length} TPS: ${finishedPuzzles[index].tps!.toStringAsFixed(3)}'),
+          );
+        },
       ),
     );
   }

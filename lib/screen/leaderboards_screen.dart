@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kinse/model/Game.dart';
 import 'package:kinse/model/Match.dart';
+import 'package:kinse/model/Puzzle.dart';
 import 'package:kinse/widget/match_detail_widget.dart';
 
 class LeaderBoardsScreen extends StatefulWidget {
@@ -18,12 +20,28 @@ class LeaderBoardsScreen extends StatefulWidget {
 }
 
 class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
-  late Stream<QuerySnapshot> matchesStream;
+  late Stream<QuerySnapshot> gameStream;
   late StreamSubscription<QuerySnapshot> streamSubscription;
   bool leaderboardAscending = true;
   int leaderboardColumnIndex = 0;
+  int selectedGameOptionIndex = 0;
+  int puzzleOrder = 0;
   Match? selectedMatch;
+  Game? selectedGame;
+  Puzzle? selectedPuzzle;
   List<Match> historicalMatches = [];
+  List<Puzzle> historicalPuzzles = [];
+  List<Game> historicalGames = [];
+  List<String> gameOptions = [
+    'Overall',
+    'Single',
+    'Average of 5',
+    'Average of 10',
+    'Average of 12',
+    'Average of 50',
+    'Average of 100',
+  ];
+  List<int> gameTypeEquivalent = [-1, 1, 5, 10, 12, 50, 100];
 
   String millisecondsFormatter(int totalMilliseconds) {
     int minutes = (totalMilliseconds / 1000) ~/ 60;
@@ -31,17 +49,22 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
     return "$minutes:$seconds";
   }
 
-  listenMatches() {
+  listenGames() {
     try {
       setState(() {
-        matchesStream =
-            widget.firestoreInstance.collection('matches').snapshots();
-        streamSubscription = matchesStream.listen((QuerySnapshot snapshot) {
-          List<Match> fetchedMatches = snapshot.docs
-              .map((e) => Match.fromJson(e.data() as Map<String, dynamic>))
+        gameStream = widget.firestoreInstance.collection('games').snapshots();
+        streamSubscription = gameStream.listen((QuerySnapshot snapshot) {
+          List<Game> fetchedGames = snapshot.docs
+              .map((e) => Game.fromJson(e.data() as Map<String, dynamic>))
               .toList();
           setState(() {
-            historicalMatches = fetchedMatches;
+            historicalGames = fetchedGames;
+            historicalPuzzles.clear();
+            for (var game in historicalGames) {
+              if (game.puzzles != null) {
+                historicalPuzzles = historicalPuzzles + game.puzzles!;
+              }
+            }
           });
         });
       });
@@ -51,10 +74,31 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
     }
   }
 
+  int getAverageTime(Game game) {
+    int totalMillisecond = 0;
+    if (game.puzzles != null) {
+      for (var puzzle in game.puzzles!) {
+        totalMillisecond = totalMillisecond + puzzle.millisecondDuration!;
+      }
+      totalMillisecond = totalMillisecond ~/ game.puzzles!.length;
+    }
+    return totalMillisecond;
+  }
+
+  int getTotalMoves(Game game) {
+    int totalMoves = 0;
+    if (game.puzzles != null) {
+      for (var puzzle in game.puzzles!) {
+        totalMoves = totalMoves + puzzle.moves!.length;
+      }
+    }
+    return totalMoves;
+  }
+
   @override
   void initState() {
     super.initState();
-    listenMatches();
+    listenGames();
   }
 
   @override
@@ -91,105 +135,46 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
           )
         ],
       ),
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 28, bottom: 16),
-            child: Text('Leaderboards'),
-          ),
-          Expanded(
-            child: Row(
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 28, bottom: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        selectedPuzzle = null;
+                        selectedGame = null;
+                        selectedGameOptionIndex = selectedGameOptionIndex < 6
+                            ? selectedGameOptionIndex + 1
+                            : 0;
+                      });
+                    },
+                    child: Text(gameOptions[selectedGameOptionIndex]),
+                  ),
+                  const Text(' Leaderboards'),
+                ],
+              ),
+            ),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.max,
               children: [
-                Container(
-                  alignment: Alignment.topCenter,
-                  child: SingleChildScrollView(
-                    controller: ScrollController(),
-                    child: DataTable(
-                      showCheckboxColumn: false,
-                      sortAscending: leaderboardAscending,
-                      sortColumnIndex: leaderboardColumnIndex,
-                      showBottomBorder: true,
-                      columns: [
-                        const DataColumn(label: Text('Name')),
-                        DataColumn(
-                          label: const Text('Time'),
-                          onSort: (index, ascending) {
-                            setState(() {
-                              leaderboardColumnIndex = index;
-                              leaderboardAscending = ascending;
-                              historicalMatches.sort((a, b) => a
-                                  .millisecondDuration
-                                  .compareTo(b.millisecondDuration));
-                              if (ascending) {
-                                historicalMatches =
-                                    historicalMatches.reversed.toList();
-                              }
-                            });
-                          },
-                        ),
-                        DataColumn(
-                          label: const Text('Moves'),
-                          onSort: (index, ascending) {
-                            setState(() {
-                              leaderboardColumnIndex = index;
-                              leaderboardAscending = ascending;
-                              historicalMatches.sort((a, b) =>
-                                  a.moves.length.compareTo(b.moves.length));
-                              if (ascending) {
-                                historicalMatches =
-                                    historicalMatches.reversed.toList();
-                              }
-                            });
-                          },
-                        ),
-                      ],
-                      rows: historicalMatches.map((e) {
-                        return DataRow(
-                          selected: (selectedMatch == e),
-                          onSelectChanged: (selected) async {
-                            if (kIsWeb) {
-                              if (selectedMatch != e) {
-                                setState(() {
-                                  selectedMatch = e;
-                                });
-                              } else {
-                                setState(() {
-                                  selectedMatch = null;
-                                });
-                              }
-                            } else {
-                              await showModalBottomSheet(
-                                  context: context,
-                                  isDismissible: true,
-                                  builder: (context) {
-                                    return Scaffold(
-                                      body: MatchDetailWidget(match: e),
-                                    );
-                                  });
-                            }
-                          },
-                          cells: [
-                            DataCell(Text(e.name)),
-                            DataCell(Text(
-                                millisecondsFormatter(e.millisecondDuration))),
-                            DataCell(Text(e.moves.length.toString())),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                (selectedMatch != null
+                _buildLeaderboardTable(),
+                (selectedGame != null
                     ? Flexible(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24.0),
                           child: SizedBox(
                             width: 350,
                             child: MatchDetailWidget(
-                              match: selectedMatch!,
+                              game: selectedGame!,
+                              order: puzzleOrder,
                               key: UniqueKey(),
                             ),
                           ),
@@ -198,9 +183,172 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
                     : const SizedBox.shrink()),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  _buildLeaderboardTable() {
+    List<DataColumn> dataColumns = [
+      const DataColumn(label: Text('Name')),
+      DataColumn(
+        label: Text(selectedGameOptionIndex < 2 ? 'Time' : 'Average Time'),
+        onSort: (index, ascending) {
+          setState(() {
+            leaderboardColumnIndex = index;
+            leaderboardAscending = ascending;
+            if (selectedGameOptionIndex < 2) {
+              historicalPuzzles.sort((a, b) =>
+                  a.millisecondDuration!.compareTo(b.millisecondDuration!));
+              if (ascending) {
+                historicalGames = historicalGames.reversed.toList();
+              }
+            } else {
+              historicalGames.sort(
+                  (a, b) => getAverageTime(a).compareTo(getAverageTime(b)));
+              if (ascending) {
+                historicalGames = historicalGames.reversed.toList();
+              }
+            }
+          });
+        },
+      ),
+      DataColumn(
+        label: Text(selectedGameOptionIndex < 2 ? 'Moves' : 'Total Moves'),
+        onSort: (index, ascending) {
+          setState(() {
+            leaderboardColumnIndex = index;
+            leaderboardAscending = ascending;
+            if (selectedGameOptionIndex < 2) {
+              historicalPuzzles
+                  .sort((a, b) => a.moves!.length.compareTo(b.moves!.length));
+              if (ascending) {
+                historicalGames = historicalGames.reversed.toList();
+              }
+            } else {
+              historicalGames
+                  .sort((a, b) => getTotalMoves(a).compareTo(getTotalMoves(b)));
+              if (ascending) {
+                historicalGames = historicalGames.reversed.toList();
+              }
+            }
+            historicalPuzzles
+                .sort((a, b) => a.moves!.length.compareTo(b.moves!.length));
+            if (ascending) {
+              historicalPuzzles = historicalPuzzles.reversed.toList();
+            }
+          });
+        },
+      ),
+    ];
+    List<DataRow> dataRows = [];
+    if (selectedGameOptionIndex < 1) {
+      dataRows = historicalPuzzles.map((puzzle) {
+        return DataRow(
+          selected: (selectedPuzzle == puzzle),
+          onSelectChanged: (selected) async {
+            if (kIsWeb) {
+              if (selectedPuzzle != puzzle) {
+                setState(() {
+                  selectedPuzzle = puzzle;
+                  selectedGame = historicalGames
+                      .where((element) => element.id == puzzle.gameID)
+                      .first;
+                  puzzleOrder =
+                      puzzle.order > 0 ? puzzle.order - 1 : puzzle.order;
+                });
+              } else {
+                setState(() {
+                  selectedGame = null;
+                  selectedPuzzle = null;
+                  puzzleOrder = 0;
+                });
+              }
+            } else {
+              await showModalBottomSheet(
+                  context: context,
+                  isDismissible: true,
+                  builder: (context) {
+                    return Scaffold(
+                      body: MatchDetailWidget(
+                        game: historicalGames
+                            .where((element) => element.id! == puzzle.gameID)
+                            .first,
+                        order: puzzle.order,
+                      ),
+                    );
+                  });
+            }
+          },
+          cells: [
+            DataCell(Text(puzzle.name!)),
+            DataCell(Text(millisecondsFormatter(puzzle.millisecondDuration!))),
+            DataCell(Text(puzzle.moves!.length.toString())),
+          ],
+        );
+      }).toList();
+    } else {
+      dataRows = historicalGames
+          .where((element) =>
+              element.gameType == gameTypeEquivalent[selectedGameOptionIndex])
+          .map((game) {
+        return DataRow(
+          selected: (selectedGame == game),
+          onSelectChanged: (selected) async {
+            if (kIsWeb) {
+              if (selectedGame != game) {
+                setState(() {
+                  selectedGame = game;
+                  puzzleOrder = 0;
+                });
+              } else {
+                setState(() {
+                  selectedGame = null;
+                  puzzleOrder = 0;
+                });
+              }
+            } else {
+              await showModalBottomSheet(
+                  context: context,
+                  isDismissible: true,
+                  builder: (context) {
+                    return Scaffold(
+                      body: MatchDetailWidget(game: game, order: puzzleOrder),
+                    );
+                  });
+            }
+          },
+          cells: [
+            DataCell(Text(game.name!)),
+            DataCell(Text(millisecondsFormatter(getAverageTime(game)))),
+            DataCell(Text(getTotalMoves(game).toString())),
+          ],
+        );
+      }).toList();
+    }
+    return Column(
+      children: [
+        DataTable(
+          showCheckboxColumn: false,
+          showBottomBorder: true,
+          sortAscending: leaderboardAscending,
+          sortColumnIndex: leaderboardColumnIndex,
+          columns: dataColumns,
+          rows: dataRows,
+        ),
+        (selectedGameOptionIndex > 0 &&
+                historicalGames
+                    .where((element) =>
+                        element.gameType ==
+                        gameTypeEquivalent[selectedGameOptionIndex])
+                    .isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(28.0),
+                child: Text("No records."),
+              )
+            : const SizedBox(height: 24)),
+      ],
     );
   }
 }
