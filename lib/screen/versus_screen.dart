@@ -950,12 +950,9 @@ class _VersusScreenState extends State<VersusScreen> {
                 scrollDirection: Axis.vertical,
                 itemCount: 16,
                 itemBuilder: (context, index) {
-                  return Container(
-                    color: Colors.red,
-                    child: Center(
-                      child: Text(
-                        "${opponentTiles[index] == 16 ? "" : opponentTiles[index]}",
-                      ),
+                  return Center(
+                    child: Text(
+                      "${opponentTiles[index] == 16 ? "" : opponentTiles[index]}",
                     ),
                   );
                 },

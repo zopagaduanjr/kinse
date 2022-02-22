@@ -48,6 +48,9 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
   }
 
   String stopwatchFormatter(Duration duration) {
+    if (duration.inMilliseconds > puzzles[currentPuzzle].millisecondDuration!) {
+      return millisecondsFormatter(puzzles[currentPuzzle].millisecondDuration!);
+    }
     return duration.toString().substring(2, 11);
   }
 
@@ -113,12 +116,19 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
         if (_stopwatch.isRunning && isPlaying == false) {
           _stopwatch.stop();
           timer.cancel();
-        } else if (movesQueue.isEmpty) {
-          timer.cancel();
-          _stopwatch.stop();
-          isPlaying = false;
-        } else if (isPlaying && movesQueue.isNotEmpty) {
+        }
+        if (isPlaying && movesQueue.isNotEmpty) {
           playbackController.sink.add(movesQueue.removeFirst());
+          if (movesQueue.isEmpty) {
+            _stopwatch.stop();
+            timer.cancel();
+            isPlaying = false;
+          }
+        }
+        if (movesQueue.isEmpty) {
+          _stopwatch.stop();
+          timer.cancel();
+          isPlaying = false;
         }
       });
     });
@@ -204,10 +214,12 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
       speedHistory = speedHistory +
           (_stopwatch.elapsedMilliseconds * speedOptions[speedIndex]).toInt();
       speedIndex = speedIndex < (speedOptions.length - 1) ? speedIndex + 1 : 0;
-      movesIntervalDuration = Duration(
-          milliseconds: (puzzles[currentPuzzle].millisecondDuration! *
-                  (1 / speedOptions[speedIndex])) ~/
+      double modifiedMillisecondPerMove =
+          ((puzzles[currentPuzzle].millisecondDuration! /
+                  speedOptions[speedIndex]) /
               puzzles[currentPuzzle].moves!.length);
+      movesIntervalDuration =
+          Duration(microseconds: (modifiedMillisecondPerMove * 1000).toInt());
       _stopwatch.reset();
     });
     if (isPlaying) {
@@ -273,10 +285,12 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
             puzzles[currentPuzzle].moves!.length;
         tilesCopy = List.from(puzzles[currentPuzzle].sequence);
         movesQueue = ListQueue.from(puzzles[currentPuzzle].moves!);
-        movesIntervalDuration = Duration(
-            milliseconds: (puzzles[currentPuzzle].millisecondDuration! *
-                    (1 / speedOptions[speedIndex])) ~/
+        double modifiedMillisecondPerMove =
+            ((puzzles[currentPuzzle].millisecondDuration! /
+                    speedOptions[speedIndex]) /
                 puzzles[currentPuzzle].moves!.length);
+        movesIntervalDuration =
+            Duration(microseconds: (modifiedMillisecondPerMove * 1000).toInt());
         millisecondOffset = 0;
         speedHistory = 0;
       });
@@ -294,10 +308,12 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
           puzzles[currentPuzzle].moves!.length;
       tilesCopy = List.from(puzzles[currentPuzzle].sequence);
       movesQueue = ListQueue.from(puzzles[currentPuzzle].moves!);
-      movesIntervalDuration = Duration(
-          milliseconds: (puzzles[currentPuzzle].millisecondDuration! *
-                  (1 / speedOptions[speedIndex])) ~/
+      double modifiedMillisecondPerMove =
+          ((puzzles[currentPuzzle].millisecondDuration! /
+                  speedOptions[speedIndex]) /
               puzzles[currentPuzzle].moves!.length);
+      movesIntervalDuration =
+          Duration(microseconds: (modifiedMillisecondPerMove * 1000).toInt());
       streamSubscription = playbackController.stream.listen((event) {
         moveTile(event as int);
       });

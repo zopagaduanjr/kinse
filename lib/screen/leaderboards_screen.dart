@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kinse/model/Game.dart';
-import 'package:kinse/model/Match.dart';
 import 'package:kinse/model/Puzzle.dart';
+import 'package:kinse/screen/versus_screen.dart';
 import 'package:kinse/widget/match_detail_widget.dart';
 
 class LeaderBoardsScreen extends StatefulWidget {
@@ -26,10 +26,8 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
   int leaderboardColumnIndex = 0;
   int selectedGameOptionIndex = 0;
   int puzzleOrder = 0;
-  Match? selectedMatch;
   Game? selectedGame;
   Puzzle? selectedPuzzle;
-  List<Match> historicalMatches = [];
   List<Puzzle> historicalPuzzles = [];
   List<Game> historicalGames = [];
   List<String> gameOptions = [
@@ -52,7 +50,10 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
   listenGames() {
     try {
       setState(() {
-        gameStream = widget.firestoreInstance.collection('games').snapshots();
+        gameStream = widget.firestoreInstance
+            .collection('games')
+            .where('isFinished', isEqualTo: true)
+            .snapshots();
         streamSubscription = gameStream.listen((QuerySnapshot snapshot) {
           List<Game> fetchedGames = snapshot.docs
               .map((e) => Game.fromJson(e.data() as Map<String, dynamic>))
@@ -69,7 +70,6 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
         });
       });
     } catch (error) {
-      //hopefully gets called when 50k reads has been reached.
       print(error.toString());
     }
   }
@@ -109,81 +109,96 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.dashboard_customize, color: Colors.white),
-          tooltip: 'Home',
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.sports_kabaddi),
-            tooltip: 'Find Match',
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.dashboard_customize, color: Colors.white),
+            tooltip: 'Home',
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.leaderboard, color: Colors.black),
-            tooltip: 'Leaderboards',
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 28, bottom: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        selectedPuzzle = null;
-                        selectedGame = null;
-                        selectedGameOptionIndex = selectedGameOptionIndex < 6
-                            ? selectedGameOptionIndex + 1
-                            : 0;
-                      });
-                    },
-                    child: Text(gameOptions[selectedGameOptionIndex]),
+          actions: [
+            IconButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation1, animation2) =>
+                        VersusScreen(
+                            firestoreInstance: widget.firestoreInstance),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
                   ),
-                  const Text(' Leaderboards'),
-                ],
-              ),
+                );
+              },
+              icon: const Icon(Icons.sports_kabaddi),
+              tooltip: 'Find Match',
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                _buildLeaderboardTable(),
-                (selectedGame != null
-                    ? Flexible(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: SizedBox(
-                            width: 350,
-                            child: MatchDetailWidget(
-                              game: selectedGame!,
-                              order: puzzleOrder,
-                              key: UniqueKey(),
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.leaderboard, color: Colors.black),
+              tooltip: 'Leaderboards',
+            ),
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.settings),
+              tooltip: 'Settings',
+            )
+          ],
+        ),
+        body: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 28, bottom: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedPuzzle = null;
+                          selectedGame = null;
+                          selectedGameOptionIndex = selectedGameOptionIndex < 6
+                              ? selectedGameOptionIndex + 1
+                              : 0;
+                        });
+                      },
+                      child: Text(gameOptions[selectedGameOptionIndex]),
+                    ),
+                    const Text(' Leaderboards'),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Flexible(child: _buildLeaderboardTable()),
+                  (selectedGame != null
+                      ? Flexible(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 24.0),
+                            child: SizedBox(
+                              width: 350,
+                              child: MatchDetailWidget(
+                                game: selectedGame!,
+                                order: puzzleOrder,
+                                key: UniqueKey(),
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                    : const SizedBox.shrink()),
-              ],
-            ),
-          ],
+                        )
+                      : const SizedBox.shrink()),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -282,7 +297,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
             }
           },
           cells: [
-            DataCell(Text(puzzle.name!)),
+            DataCell(Text('${puzzle.name}')),
             DataCell(Text(millisecondsFormatter(puzzle.millisecondDuration!))),
             DataCell(Text(puzzle.moves!.length.toString())),
           ],
@@ -329,13 +344,15 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
     }
     return Column(
       children: [
-        DataTable(
-          showCheckboxColumn: false,
-          showBottomBorder: true,
-          sortAscending: leaderboardAscending,
-          sortColumnIndex: leaderboardColumnIndex,
-          columns: dataColumns,
-          rows: dataRows,
+        FittedBox(
+          child: DataTable(
+            showCheckboxColumn: false,
+            showBottomBorder: true,
+            sortAscending: leaderboardAscending,
+            sortColumnIndex: leaderboardColumnIndex,
+            columns: dataColumns,
+            rows: dataRows,
+          ),
         ),
         (selectedGameOptionIndex > 0 &&
                 historicalGames

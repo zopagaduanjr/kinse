@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:kinse/model/Game.dart';
 import 'package:kinse/model/Puzzle.dart';
+import 'package:kinse/screen/versus_screen.dart';
 
 import 'leaderboards_screen.dart';
 
@@ -193,7 +194,6 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                 name: 'badong17',
                 gameType: generatedPuzzles.length,
                 dateSubmitted: DateTime.now(),
-                averageTime: totalTime / generatedPuzzles.length,
                 puzzles: generatedPuzzles,
               );
               try {
@@ -260,7 +260,19 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              _stopwatch.stop();
+              _callbackTimer?.cancel();
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation1, animation2) =>
+                      VersusScreen(firestoreInstance: firestoreInstance),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            },
             icon: const Icon(Icons.sports_kabaddi),
             tooltip: 'Find Match',
           ),
