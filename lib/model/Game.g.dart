@@ -16,7 +16,7 @@ Game _$GameFromJson(Map<String, dynamic> json) => Game(
       puzzles: (json['puzzles'] as List<dynamic>?)
           ?.map((e) => Puzzle.fromJson(e as Map<String, dynamic>))
           .toList(),
-      averageTime: (json['averageTime'] as num?)?.toDouble(),
+      isFinished: json['isFinished'] as bool?,
     );
 
 Map<String, dynamic> _$GameToJson(Game instance) => <String, dynamic>{
@@ -25,5 +25,5 @@ Map<String, dynamic> _$GameToJson(Game instance) => <String, dynamic>{
       'gameType': instance.gameType,
       'dateSubmitted': instance.dateSubmitted?.toIso8601String(),
       'puzzles': instance.puzzles?.map((e) => e.toJson()).toList(),
-      'averageTime': instance.averageTime,
+      'isFinished': instance.isFinished,
     };

@@ -10,14 +10,14 @@ class Game {
   int? gameType;
   DateTime? dateSubmitted;
   List<Puzzle>? puzzles;
-  double? averageTime;
+  bool? isFinished;
   Game({
     this.id,
     this.name,
     this.gameType,
     this.dateSubmitted,
     this.puzzles,
-    this.averageTime,
+    this.isFinished,
   });
 
   factory Game.fromJson(Map<String, dynamic> json) => _$GameFromJson(json);
