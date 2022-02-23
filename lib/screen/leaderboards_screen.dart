@@ -304,7 +304,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
                         game: historicalGames
                             .where((element) => element.id! == puzzle.gameID)
                             .first,
-                        order: puzzle.order,
+                        order: puzzle.order - 1,
                       ),
                     );
                   });
