@@ -236,7 +236,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
               historicalPuzzles.sort((a, b) =>
                   a.millisecondDuration!.compareTo(b.millisecondDuration!));
               if (ascending) {
-                historicalGames = historicalGames.reversed.toList();
+                historicalPuzzles = historicalPuzzles.reversed.toList();
               }
             } else {
               historicalGames.sort(
@@ -258,7 +258,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
               historicalPuzzles
                   .sort((a, b) => a.moves!.length.compareTo(b.moves!.length));
               if (ascending) {
-                historicalGames = historicalGames.reversed.toList();
+                historicalPuzzles = historicalPuzzles.reversed.toList();
               }
             } else {
               historicalGames
@@ -266,11 +266,6 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
               if (ascending) {
                 historicalGames = historicalGames.reversed.toList();
               }
-            }
-            historicalPuzzles
-                .sort((a, b) => a.moves!.length.compareTo(b.moves!.length));
-            if (ascending) {
-              historicalPuzzles = historicalPuzzles.reversed.toList();
             }
           });
         },
