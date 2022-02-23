@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:kinse/config/constants.dart';
 import 'package:kinse/model/Game.dart';
 import 'package:kinse/model/Puzzle.dart';
 
@@ -373,10 +374,21 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
                 itemCount: tilesCopy.length,
                 itemBuilder: (context, index) {
                   return Container(
-                    color: Colors.transparent,
+                    color: widget.game.colorScheme != null
+                        ? colorChoices[
+                            widget.game.colorScheme![tilesCopy[index] - 1]]
+                        : Colors.transparent,
                     child: Center(
                       child: Text(
                         "${tilesCopy[index] == 16 ? "" : tilesCopy[index]}",
+                        style: TextStyle(
+                            color: widget.game.colorScheme != null
+                                ? (widget.game.colorScheme![
+                                            tilesCopy[index] - 1] ==
+                                        7
+                                    ? Colors.white
+                                    : null)
+                                : null),
                       ),
                     ),
                   );

@@ -3,20 +3,26 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:kinse/config/constants.dart';
 import 'package:kinse/model/Game.dart';
 import 'package:kinse/model/Puzzle.dart';
+import 'package:kinse/model/User.dart';
 import 'package:kinse/model/Versus.dart';
+import 'package:kinse/screen/settings_screen.dart';
 
 import 'leaderboards_screen.dart';
 
 class VersusScreen extends StatefulWidget {
   final FirebaseFirestore firestoreInstance;
+  final User currentUser;
   const VersusScreen({
     Key? key,
     required this.firestoreInstance,
+    required this.currentUser,
   }) : super(key: key);
 
   @override
@@ -77,7 +83,12 @@ class _VersusScreenState extends State<VersusScreen> {
   Game? generatedGame;
   Game? opponentGame;
   String enemyName = "null";
+  List<int>? enemyColorScheme;
   String versusID = "";
+  ScrollController mainScrollController = ScrollController();
+  ScrollController scrollControllerA = ScrollController();
+  ScrollController scrollControllerB = ScrollController();
+  ScrollController scrollControllerC = ScrollController();
 
   listenVersusQueue() {
     try {
@@ -164,6 +175,7 @@ class _VersusScreenState extends State<VersusScreen> {
             opponentGame!.puzzles![opponentCurrentPuzzleIndex].sequence;
         opponentMoves =
             opponentGame!.puzzles![opponentCurrentPuzzleIndex].moves!;
+        enemyColorScheme = opponentGame!.colorScheme;
       });
       opponentGameStream =
           widget.firestoreInstance.collection('games').doc(gameID).snapshots();
@@ -198,6 +210,7 @@ class _VersusScreenState extends State<VersusScreen> {
                     opponentGame!.puzzles![opponentCurrentPuzzleIndex].moves!;
               });
             } else {
+              setState(() {});
               opponentGameSubscription.cancel();
             }
           }
@@ -230,12 +243,16 @@ class _VersusScreenState extends State<VersusScreen> {
   }
 
   updatePlayerGame() {
-    Timer.periodic(const Duration(seconds: 1, milliseconds: 500), (timer) {
+    Timer.periodic(const Duration(seconds: 1), (timer) {
       widget.firestoreInstance
           .collection('games')
           .doc(generatedGame!.id)
           .update(generatedGame!.toJson());
       if (finishedMatch) {
+        widget.firestoreInstance
+            .collection('games')
+            .doc(generatedGame!.id)
+            .update(generatedGame!.toJson());
         timer.cancel();
       }
     });
@@ -259,15 +276,16 @@ class _VersusScreenState extends State<VersusScreen> {
     var versusDoc = widget.firestoreInstance.collection('versus').doc();
     Game game = Game(
       id: gameADoc.id,
-      name: 'badong18A',
+      name: widget.currentUser.name,
       gameType: 5,
       puzzles: List.from(setupPuzzles),
       isFinished: false,
+      colorScheme: widget.currentUser.colorScheme,
     );
     Versus versus = Versus(
       id: versusDoc.id,
       queueStarted: DateTime.now(),
-      playerA: "badong18A",
+      playerA: widget.currentUser.name,
       gameType: 5,
       puzzles: List.from(setupPuzzles),
       isFindingMatch: true,
@@ -296,10 +314,11 @@ class _VersusScreenState extends State<VersusScreen> {
     var gameBDoc = widget.firestoreInstance.collection('games').doc();
     Game game = Game(
       id: gameBDoc.id,
-      name: 'badong18B',
+      name: widget.currentUser.name,
       gameType: 5,
       puzzles: List.from(versus.puzzles!),
       isFinished: false,
+      colorScheme: widget.currentUser.colorScheme,
     );
     try {
       widget.firestoreInstance
@@ -308,7 +327,7 @@ class _VersusScreenState extends State<VersusScreen> {
           .set(game.toJson());
       widget.firestoreInstance.collection('versus').doc(versus.id).update({
         'isFindingMatch': false,
-        'playerB': 'badong18B',
+        'playerB': widget.currentUser.name,
         'gameBID': gameBDoc.id,
         'queueEnded': DateTime.now().toIso8601String(),
       });
@@ -368,7 +387,7 @@ class _VersusScreenState extends State<VersusScreen> {
     newSequence.shuffle();
     newLoop++;
     Set solveable = isSolveable(newSequence);
-    while (solveable.first == false || solveable.last > 30) {
+    while (solveable.first == false) {
       newSequence.shuffle();
       solveable = isSolveable(newSequence);
       newLoop++;
@@ -571,7 +590,9 @@ class _VersusScreenState extends State<VersusScreen> {
                     PageRouteBuilder(
                       pageBuilder: (context, animation1, animation2) =>
                           LeaderBoardsScreen(
-                              firestoreInstance: widget.firestoreInstance),
+                        firestoreInstance: widget.firestoreInstance,
+                        currentUser: widget.currentUser,
+                      ),
                       transitionDuration: Duration.zero,
                       reverseTransitionDuration: Duration.zero,
                     ),
@@ -592,8 +613,9 @@ class _VersusScreenState extends State<VersusScreen> {
                             PageRouteBuilder(
                               pageBuilder: (context, animation1, animation2) =>
                                   LeaderBoardsScreen(
-                                      firestoreInstance:
-                                          widget.firestoreInstance),
+                                firestoreInstance: widget.firestoreInstance,
+                                currentUser: widget.currentUser,
+                              ),
                               transitionDuration: Duration.zero,
                               reverseTransitionDuration: Duration.zero,
                             ),
@@ -608,28 +630,87 @@ class _VersusScreenState extends State<VersusScreen> {
               tooltip: 'Leaderboards',
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                if (!inMatch && !isFindingMatch) {
+                  Navigator.pushReplacement(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation1, animation2) =>
+                          SettingsScreen(
+                        firestoreInstance: widget.firestoreInstance,
+                        currentUser: widget.currentUser,
+                      ),
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          const Text('Currently in Match. Continue to leave?'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 3),
+                      action: SnackBarAction(
+                        label: 'Leave',
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder: (context, animation1, animation2) =>
+                                  SettingsScreen(
+                                firestoreInstance: widget.firestoreInstance,
+                                currentUser: widget.currentUser,
+                              ),
+                              transitionDuration: Duration.zero,
+                              reverseTransitionDuration: Duration.zero,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                }
+              },
               icon: const Icon(Icons.settings),
               tooltip: 'Settings',
             )
           ],
         ),
-        body: RawKeyboardListener(
-          focusNode: FocusNode(),
-          autofocus: true,
-          onKey: (RawKeyEvent event) async {
-            if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
-              moveTile(tiles.indexOf(16) + 4);
-            } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
-              moveTile(tiles.indexOf(16) - 4);
-            } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
-              moveTile(tiles.indexOf(16) + 1);
-            } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
-              moveTile(tiles.indexOf(16) - 1);
+        body: Listener(
+          onPointerSignal: (ps) {
+            if (kIsWeb) {
+              if (ps is PointerScrollEvent) {
+                final newOffset =
+                    mainScrollController.offset + ps.scrollDelta.dy;
+                if (ps.scrollDelta.dy.isNegative) {
+                  mainScrollController.jumpTo(max(0, newOffset));
+                } else {
+                  mainScrollController.jumpTo(min(
+                      mainScrollController.position.maxScrollExtent,
+                      newOffset));
+                }
+              }
             }
           },
-          child: SingleChildScrollView(
-            child: Container(
+          child: RawKeyboardListener(
+            focusNode: FocusNode(),
+            autofocus: true,
+            onKey: (RawKeyEvent event) async {
+              if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+                moveTile(tiles.indexOf(16) + 4);
+              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+                moveTile(tiles.indexOf(16) - 4);
+              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+                moveTile(tiles.indexOf(16) + 1);
+              } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+                moveTile(tiles.indexOf(16) - 1);
+              }
+            },
+            child: SingleChildScrollView(
+              physics: kIsWeb ? const NeverScrollableScrollPhysics() : null,
+              controller: mainScrollController,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -665,6 +746,7 @@ class _VersusScreenState extends State<VersusScreen> {
                                         crossAxisCount: 4),
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
+                                controller: scrollControllerA,
                                 scrollDirection: Axis.vertical,
                                 itemCount: tiles.length,
                                 itemBuilder: (context, index) {
@@ -700,95 +782,101 @@ class _VersusScreenState extends State<VersusScreen> {
       key: keyList[index],
       onPointerDown: (details) => moveTile(index),
       onPointerMove: (details) {
-        final result = BoxHitTestResult();
-        if (boxList[15].hitTest(
-          result,
-          position: boxList[15].globalToLocal(details.position),
-        )) {
-          moveTile(15);
-        } else if (boxList[14].hitTest(
-          result,
-          position: boxList[14].globalToLocal(details.position),
-        )) {
-          moveTile(14);
-        } else if (boxList[13].hitTest(
-          result,
-          position: boxList[13].globalToLocal(details.position),
-        )) {
-          moveTile(13);
-        } else if (boxList[12].hitTest(
-          result,
-          position: boxList[12].globalToLocal(details.position),
-        )) {
-          moveTile(12);
-        } else if (boxList[11].hitTest(
-          result,
-          position: boxList[11].globalToLocal(details.position),
-        )) {
-          moveTile(11);
-        } else if (boxList[10].hitTest(
-          result,
-          position: boxList[10].globalToLocal(details.position),
-        )) {
-          moveTile(10);
-        } else if (boxList[9].hitTest(
-          result,
-          position: boxList[9].globalToLocal(details.position),
-        )) {
-          moveTile(9);
-        } else if (boxList[8].hitTest(
-          result,
-          position: boxList[8].globalToLocal(details.position),
-        )) {
-          moveTile(8);
-        } else if (boxList[7].hitTest(
-          result,
-          position: boxList[7].globalToLocal(details.position),
-        )) {
-          moveTile(7);
-        } else if (boxList[6].hitTest(
-          result,
-          position: boxList[6].globalToLocal(details.position),
-        )) {
-          moveTile(6);
-        } else if (boxList[5].hitTest(
-          result,
-          position: boxList[5].globalToLocal(details.position),
-        )) {
-          moveTile(5);
-        } else if (boxList[4].hitTest(
-          result,
-          position: boxList[4].globalToLocal(details.position),
-        )) {
-          moveTile(4);
-        } else if (boxList[3].hitTest(
-          result,
-          position: boxList[3].globalToLocal(details.position),
-        )) {
-          moveTile(3);
-        } else if (boxList[2].hitTest(
-          result,
-          position: boxList[2].globalToLocal(details.position),
-        )) {
-          moveTile(2);
-        } else if (boxList[1].hitTest(
-          result,
-          position: boxList[1].globalToLocal(details.position),
-        )) {
-          moveTile(1);
-        } else if (boxList[0].hitTest(
-          result,
-          position: boxList[0].globalToLocal(details.position),
-        )) {
-          moveTile(0);
+        if (widget.currentUser.glide) {
+          final result = BoxHitTestResult();
+          if (boxList[15].hitTest(
+            result,
+            position: boxList[15].globalToLocal(details.position),
+          )) {
+            moveTile(15);
+          } else if (boxList[14].hitTest(
+            result,
+            position: boxList[14].globalToLocal(details.position),
+          )) {
+            moveTile(14);
+          } else if (boxList[13].hitTest(
+            result,
+            position: boxList[13].globalToLocal(details.position),
+          )) {
+            moveTile(13);
+          } else if (boxList[12].hitTest(
+            result,
+            position: boxList[12].globalToLocal(details.position),
+          )) {
+            moveTile(12);
+          } else if (boxList[11].hitTest(
+            result,
+            position: boxList[11].globalToLocal(details.position),
+          )) {
+            moveTile(11);
+          } else if (boxList[10].hitTest(
+            result,
+            position: boxList[10].globalToLocal(details.position),
+          )) {
+            moveTile(10);
+          } else if (boxList[9].hitTest(
+            result,
+            position: boxList[9].globalToLocal(details.position),
+          )) {
+            moveTile(9);
+          } else if (boxList[8].hitTest(
+            result,
+            position: boxList[8].globalToLocal(details.position),
+          )) {
+            moveTile(8);
+          } else if (boxList[7].hitTest(
+            result,
+            position: boxList[7].globalToLocal(details.position),
+          )) {
+            moveTile(7);
+          } else if (boxList[6].hitTest(
+            result,
+            position: boxList[6].globalToLocal(details.position),
+          )) {
+            moveTile(6);
+          } else if (boxList[5].hitTest(
+            result,
+            position: boxList[5].globalToLocal(details.position),
+          )) {
+            moveTile(5);
+          } else if (boxList[4].hitTest(
+            result,
+            position: boxList[4].globalToLocal(details.position),
+          )) {
+            moveTile(4);
+          } else if (boxList[3].hitTest(
+            result,
+            position: boxList[3].globalToLocal(details.position),
+          )) {
+            moveTile(3);
+          } else if (boxList[2].hitTest(
+            result,
+            position: boxList[2].globalToLocal(details.position),
+          )) {
+            moveTile(2);
+          } else if (boxList[1].hitTest(
+            result,
+            position: boxList[1].globalToLocal(details.position),
+          )) {
+            moveTile(1);
+          } else if (boxList[0].hitTest(
+            result,
+            position: boxList[0].globalToLocal(details.position),
+          )) {
+            moveTile(0);
+          }
         }
       },
       child: Container(
-        margin: EdgeInsets.all(0),
-        color: tiles[index] == 16 ? Colors.transparent : Colors.white,
+        color: colorChoices[widget.currentUser.colorScheme[tiles[index] - 1]],
+        margin: EdgeInsets.zero,
         child: Center(
           child: Text(
             "${tiles[index] == 16 ? "" : tiles[index]}",
+            style: TextStyle(
+                color: widget.currentUser.colorScheme[tiles[index] - 1] == 7
+                    ? Colors.white
+                    : null),
           ),
         ),
       ),
@@ -797,13 +885,21 @@ class _VersusScreenState extends State<VersusScreen> {
 
   _buildWebTile(int index) {
     return InkWell(
-      onHover: (val) => moveTile(index),
+      onHover: (val) {
+        if (widget.currentUser.hover) {
+          moveTile(index);
+        }
+      },
       onTap: () => moveTile(index),
       child: Container(
-        color: Colors.transparent,
+        color: colorChoices[widget.currentUser.colorScheme[tiles[index] - 1]],
         child: Center(
           child: Text(
             "${tiles[index] == 16 ? "" : tiles[index]}",
+            style: TextStyle(
+                color: widget.currentUser.colorScheme[tiles[index] - 1] == 7
+                    ? Colors.white
+                    : null),
           ),
         ),
       ),
@@ -817,6 +913,7 @@ class _VersusScreenState extends State<VersusScreen> {
         maxHeight: 375,
       ),
       child: ListView.separated(
+        controller: scrollControllerC,
         itemCount: puzzle
             .where((element) => element.millisecondDuration != null)
             .length,
@@ -947,12 +1044,27 @@ class _VersusScreenState extends State<VersusScreen> {
                     crossAxisCount: 4),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
+                controller: scrollControllerB,
                 scrollDirection: Axis.vertical,
                 itemCount: 16,
                 itemBuilder: (context, index) {
-                  return Center(
-                    child: Text(
-                      "${opponentTiles[index] == 16 ? "" : opponentTiles[index]}",
+                  return Container(
+                    color: enemyColorScheme != null
+                        ? colorChoices[
+                            enemyColorScheme![opponentTiles[index] - 1]]
+                        : Colors.transparent,
+                    child: Center(
+                      child: Text(
+                        "${opponentTiles[index] == 16 ? "" : opponentTiles[index]}",
+                        style: TextStyle(
+                            color: enemyColorScheme != null
+                                ? (enemyColorScheme![
+                                            opponentTiles[index] - 1] ==
+                                        7
+                                    ? Colors.white
+                                    : null)
+                                : null),
+                      ),
                     ),
                   );
                 },

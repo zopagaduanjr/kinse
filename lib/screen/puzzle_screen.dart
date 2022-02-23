@@ -3,12 +3,17 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:kinse/config/constants.dart';
 import 'package:kinse/model/Game.dart';
 import 'package:kinse/model/Puzzle.dart';
+import 'package:kinse/model/User.dart';
+import 'package:kinse/screen/settings_screen.dart';
 import 'package:kinse/screen/versus_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'leaderboards_screen.dart';
 
@@ -39,6 +44,11 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   FirebaseFirestore firestoreInstance = FirebaseFirestore.instance;
   Timer? _callbackTimer;
   DateTime? dateStarted;
+  User? currentUser;
+  ScrollController mainScrollController = ScrollController();
+  ScrollController scrollControllerA = ScrollController();
+  ScrollController scrollControllerB = ScrollController();
+
   final Stopwatch _stopwatch = Stopwatch();
 
   Set isSolveable(List<int> puzzle) {
@@ -85,7 +95,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     newSequence.shuffle();
     newLoop++;
     Set solveable = isSolveable(newSequence);
-    while (solveable.first == false || solveable.last > 30) {
+    while (solveable.first == false) {
       newSequence.shuffle();
       solveable = isSolveable(newSequence);
       newLoop++;
@@ -186,15 +196,19 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                 totalTime = totalTime + puzzle.millisecondDuration!;
                 setState(() {
                   puzzle.gameID = gameDoc.id;
-                  puzzle.name = "badong17";
+                  puzzle.name = currentUser != null ? currentUser!.name : "egg";
                 });
               }
               Game game = Game(
                 id: gameDoc.id,
-                name: 'badong17',
+                name: currentUser != null ? currentUser!.name : "egg",
+                colorScheme: currentUser != null
+                    ? currentUser!.colorScheme
+                    : fringeScheme,
                 gameType: generatedPuzzles.length,
                 dateSubmitted: DateTime.now(),
                 puzzles: generatedPuzzles,
+                isFinished: true,
               );
               try {
                 firestoreInstance
@@ -226,9 +240,34 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     }
   }
 
+  readUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? name = prefs.getString('name');
+    final List<String>? items = prefs.getStringList('userColor');
+    final bool? hoverValue = prefs.getBool('hover');
+    final bool? arrowKeysValue = prefs.getBool('arrowKeys');
+    final bool? glideValue = prefs.getBool('glide');
+    List<int> userColorScheme = [];
+    if (items != null) {
+      userColorScheme = items.map((e) => int.parse(e)).toList();
+    } else {
+      userColorScheme = fringeScheme;
+    }
+    setState(() {
+      currentUser = User(
+        name: name ?? "egg",
+        hover: hoverValue ?? true,
+        arrowKeys: arrowKeysValue ?? false,
+        glide: glideValue ?? true,
+        colorScheme: userColorScheme,
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    readUserData();
     setupGame(0);
     if (!kIsWeb) {
       setState(() {
@@ -267,11 +306,14 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation1, animation2) =>
-                      VersusScreen(firestoreInstance: firestoreInstance),
+                      VersusScreen(
+                    firestoreInstance: firestoreInstance,
+                    currentUser: currentUser!,
+                  ),
                   transitionDuration: Duration.zero,
                   reverseTransitionDuration: Duration.zero,
                 ),
-              );
+              ).then((value) => readUserData());
             },
             icon: const Icon(Icons.sports_kabaddi),
             tooltip: 'Find Match',
@@ -284,91 +326,131 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation1, animation2) =>
-                      LeaderBoardsScreen(firestoreInstance: firestoreInstance),
+                      LeaderBoardsScreen(
+                    firestoreInstance: firestoreInstance,
+                    currentUser: currentUser!,
+                  ),
                   transitionDuration: Duration.zero,
                   reverseTransitionDuration: Duration.zero,
                 ),
-              );
+              ).then((value) => readUserData());
             },
             icon: const Icon(Icons.leaderboard),
             tooltip: 'Leaderboards',
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              _stopwatch.stop();
+              _callbackTimer?.cancel();
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation1, animation2) =>
+                      SettingsScreen(
+                    firestoreInstance: firestoreInstance,
+                    currentUser: currentUser!,
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              ).then((value) => readUserData());
+            },
             icon: const Icon(Icons.settings),
             tooltip: 'Settings',
           )
         ],
       ),
-      body: RawKeyboardListener(
-        focusNode: FocusNode(),
-        autofocus: true,
-        onKey: (RawKeyEvent event) async {
-          if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
-            moveTile(tiles.indexOf(16) + 4);
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
-            moveTile(tiles.indexOf(16) - 4);
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
-            moveTile(tiles.indexOf(16) + 1);
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
-            moveTile(tiles.indexOf(16) - 1);
+      body: Listener(
+        onPointerSignal: (ps) {
+          if (kIsWeb) {
+            if (ps is PointerScrollEvent) {
+              final newOffset = mainScrollController.offset + ps.scrollDelta.dy;
+              if (ps.scrollDelta.dy.isNegative) {
+                mainScrollController.jumpTo(max(0, newOffset));
+              } else {
+                mainScrollController.jumpTo(min(
+                    mainScrollController.position.maxScrollExtent, newOffset));
+              }
+            }
           }
         },
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(),
-              Padding(
-                padding: const EdgeInsets.only(top: 35),
-                child: _buildGameModeButton(),
-              ),
-              (selectedGameOptionIndex > 0
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text("Game ${currentPuzzleIndex + 1}"),
-                    )
-                  : const SizedBox.shrink()),
-              Padding(
-                padding: const EdgeInsets.only(top: 28, bottom: 16),
-                child: Text(
-                  stopwatchFormatter(_stopwatch.elapsed),
-                  style: const TextStyle(fontSize: 16),
+        child: RawKeyboardListener(
+          focusNode: FocusNode(),
+          autofocus: true,
+          onKey: (RawKeyEvent event) async {
+            if (currentUser != null) {
+              if (currentUser!.arrowKeys) {
+                if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+                  moveTile(tiles.indexOf(16) + 4);
+                } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+                  moveTile(tiles.indexOf(16) - 4);
+                } else if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+                  moveTile(tiles.indexOf(16) + 1);
+                } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+                  moveTile(tiles.indexOf(16) - 1);
+                }
+              }
+            }
+          },
+          child: SingleChildScrollView(
+            physics: kIsWeb ? const NeverScrollableScrollPhysics() : null,
+            controller: mainScrollController,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(),
+                Padding(
+                  padding: const EdgeInsets.only(top: 35),
+                  child: _buildGameModeButton(),
                 ),
-              ),
-              GestureDetector(
-                onVerticalDragUpdate: (_) {},
-                child: Container(
-                  constraints: const BoxConstraints(
-                    maxWidth: 375,
-                    minHeight: 200,
+                (selectedGameOptionIndex > 0
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text("Game ${currentPuzzleIndex + 1}"),
+                      )
+                    : const SizedBox.shrink()),
+                Padding(
+                  padding: const EdgeInsets.only(top: 28, bottom: 16),
+                  child: Text(
+                    stopwatchFormatter(_stopwatch.elapsed),
+                    style: const TextStyle(fontSize: 16),
                   ),
-                  decoration: const BoxDecoration(color: Colors.transparent),
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context)
-                        .copyWith(scrollbars: false),
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4),
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      scrollDirection: Axis.vertical,
-                      itemCount: tiles.length,
-                      itemBuilder: (context, index) {
-                        return kIsWeb
-                            ? _buildWebTile(index)
-                            : _buildMobileTile(index);
-                      },
+                ),
+                GestureDetector(
+                  onVerticalDragUpdate: (_) {},
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 375,
+                      minHeight: 200,
+                    ),
+                    decoration: const BoxDecoration(color: Colors.transparent),
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context)
+                          .copyWith(scrollbars: false),
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        controller: scrollControllerA,
+                        scrollDirection: Axis.vertical,
+                        itemCount: tiles.length,
+                        itemBuilder: (context, index) {
+                          return kIsWeb
+                              ? _buildWebTile(index)
+                              : _buildMobileTile(index);
+                        },
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 35),
-                child: _buildPuzzleStats(),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 35),
+                  child: _buildPuzzleStats(),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -380,95 +462,107 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
       key: keyList[index],
       onPointerDown: (details) => moveTile(index),
       onPointerMove: (details) {
-        final result = BoxHitTestResult();
-        if (boxList[15].hitTest(
-          result,
-          position: boxList[15].globalToLocal(details.position),
-        )) {
-          moveTile(15);
-        } else if (boxList[14].hitTest(
-          result,
-          position: boxList[14].globalToLocal(details.position),
-        )) {
-          moveTile(14);
-        } else if (boxList[13].hitTest(
-          result,
-          position: boxList[13].globalToLocal(details.position),
-        )) {
-          moveTile(13);
-        } else if (boxList[12].hitTest(
-          result,
-          position: boxList[12].globalToLocal(details.position),
-        )) {
-          moveTile(12);
-        } else if (boxList[11].hitTest(
-          result,
-          position: boxList[11].globalToLocal(details.position),
-        )) {
-          moveTile(11);
-        } else if (boxList[10].hitTest(
-          result,
-          position: boxList[10].globalToLocal(details.position),
-        )) {
-          moveTile(10);
-        } else if (boxList[9].hitTest(
-          result,
-          position: boxList[9].globalToLocal(details.position),
-        )) {
-          moveTile(9);
-        } else if (boxList[8].hitTest(
-          result,
-          position: boxList[8].globalToLocal(details.position),
-        )) {
-          moveTile(8);
-        } else if (boxList[7].hitTest(
-          result,
-          position: boxList[7].globalToLocal(details.position),
-        )) {
-          moveTile(7);
-        } else if (boxList[6].hitTest(
-          result,
-          position: boxList[6].globalToLocal(details.position),
-        )) {
-          moveTile(6);
-        } else if (boxList[5].hitTest(
-          result,
-          position: boxList[5].globalToLocal(details.position),
-        )) {
-          moveTile(5);
-        } else if (boxList[4].hitTest(
-          result,
-          position: boxList[4].globalToLocal(details.position),
-        )) {
-          moveTile(4);
-        } else if (boxList[3].hitTest(
-          result,
-          position: boxList[3].globalToLocal(details.position),
-        )) {
-          moveTile(3);
-        } else if (boxList[2].hitTest(
-          result,
-          position: boxList[2].globalToLocal(details.position),
-        )) {
-          moveTile(2);
-        } else if (boxList[1].hitTest(
-          result,
-          position: boxList[1].globalToLocal(details.position),
-        )) {
-          moveTile(1);
-        } else if (boxList[0].hitTest(
-          result,
-          position: boxList[0].globalToLocal(details.position),
-        )) {
-          moveTile(0);
+        if (currentUser != null) {
+          if (currentUser!.glide) {
+            final result = BoxHitTestResult();
+            if (boxList[15].hitTest(
+              result,
+              position: boxList[15].globalToLocal(details.position),
+            )) {
+              moveTile(15);
+            } else if (boxList[14].hitTest(
+              result,
+              position: boxList[14].globalToLocal(details.position),
+            )) {
+              moveTile(14);
+            } else if (boxList[13].hitTest(
+              result,
+              position: boxList[13].globalToLocal(details.position),
+            )) {
+              moveTile(13);
+            } else if (boxList[12].hitTest(
+              result,
+              position: boxList[12].globalToLocal(details.position),
+            )) {
+              moveTile(12);
+            } else if (boxList[11].hitTest(
+              result,
+              position: boxList[11].globalToLocal(details.position),
+            )) {
+              moveTile(11);
+            } else if (boxList[10].hitTest(
+              result,
+              position: boxList[10].globalToLocal(details.position),
+            )) {
+              moveTile(10);
+            } else if (boxList[9].hitTest(
+              result,
+              position: boxList[9].globalToLocal(details.position),
+            )) {
+              moveTile(9);
+            } else if (boxList[8].hitTest(
+              result,
+              position: boxList[8].globalToLocal(details.position),
+            )) {
+              moveTile(8);
+            } else if (boxList[7].hitTest(
+              result,
+              position: boxList[7].globalToLocal(details.position),
+            )) {
+              moveTile(7);
+            } else if (boxList[6].hitTest(
+              result,
+              position: boxList[6].globalToLocal(details.position),
+            )) {
+              moveTile(6);
+            } else if (boxList[5].hitTest(
+              result,
+              position: boxList[5].globalToLocal(details.position),
+            )) {
+              moveTile(5);
+            } else if (boxList[4].hitTest(
+              result,
+              position: boxList[4].globalToLocal(details.position),
+            )) {
+              moveTile(4);
+            } else if (boxList[3].hitTest(
+              result,
+              position: boxList[3].globalToLocal(details.position),
+            )) {
+              moveTile(3);
+            } else if (boxList[2].hitTest(
+              result,
+              position: boxList[2].globalToLocal(details.position),
+            )) {
+              moveTile(2);
+            } else if (boxList[1].hitTest(
+              result,
+              position: boxList[1].globalToLocal(details.position),
+            )) {
+              moveTile(1);
+            } else if (boxList[0].hitTest(
+              result,
+              position: boxList[0].globalToLocal(details.position),
+            )) {
+              moveTile(0);
+            }
+          }
         }
       },
       child: Container(
-        margin: EdgeInsets.all(0),
-        color: tiles[index] == 16 ? Colors.transparent : Colors.white,
+        color: currentUser != null
+            ? colorChoices[currentUser!.colorScheme[tiles[index] - 1]]
+            : Colors.transparent,
+        margin: EdgeInsets.zero,
         child: Center(
           child: Text(
             "${tiles[index] == 16 ? "" : tiles[index]}",
+            style: TextStyle(
+                color: currentUser != null
+                    ? (currentUser!.colorScheme[tiles[index] - 1] == 7
+                        ? Colors.white
+                        : null)
+                    : null),
           ),
         ),
       ),
@@ -477,13 +571,27 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
 
   _buildWebTile(int index) {
     return InkWell(
-      onHover: (val) => moveTile(index),
+      onHover: (val) {
+        if (currentUser != null) {
+          if (currentUser!.hover) {
+            moveTile(index);
+          }
+        }
+      },
       onTap: () => moveTile(index),
       child: Container(
-        color: Colors.transparent,
+        color: currentUser != null
+            ? colorChoices[currentUser!.colorScheme[tiles[index] - 1]]
+            : Colors.transparent,
         child: Center(
           child: Text(
             "${tiles[index] == 16 ? "" : tiles[index]}",
+            style: TextStyle(
+                color: currentUser != null
+                    ? (currentUser!.colorScheme[tiles[index] - 1] == 7
+                        ? Colors.white
+                        : null)
+                    : null),
           ),
         ),
       ),
@@ -510,6 +618,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
         maxHeight: 375,
       ),
       child: ListView.separated(
+        controller: scrollControllerB,
         itemCount: generatedPuzzles
             .where((element) => element.millisecondDuration != null)
             .length,

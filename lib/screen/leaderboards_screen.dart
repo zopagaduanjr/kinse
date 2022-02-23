@@ -5,14 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kinse/model/Game.dart';
 import 'package:kinse/model/Puzzle.dart';
+import 'package:kinse/model/User.dart';
+import 'package:kinse/screen/settings_screen.dart';
 import 'package:kinse/screen/versus_screen.dart';
 import 'package:kinse/widget/match_detail_widget.dart';
 
 class LeaderBoardsScreen extends StatefulWidget {
   final FirebaseFirestore firestoreInstance;
+  final User currentUser;
   const LeaderBoardsScreen({
     Key? key,
     required this.firestoreInstance,
+    required this.currentUser,
   }) : super(key: key);
 
   @override
@@ -127,7 +131,9 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
                   PageRouteBuilder(
                     pageBuilder: (context, animation1, animation2) =>
                         VersusScreen(
-                            firestoreInstance: widget.firestoreInstance),
+                      firestoreInstance: widget.firestoreInstance,
+                      currentUser: widget.currentUser,
+                    ),
                     transitionDuration: Duration.zero,
                     reverseTransitionDuration: Duration.zero,
                   ),
@@ -142,7 +148,20 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
               tooltip: 'Leaderboards',
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation1, animation2) =>
+                        SettingsScreen(
+                      firestoreInstance: widget.firestoreInstance,
+                      currentUser: widget.currentUser,
+                    ),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
+                );
+              },
               icon: const Icon(Icons.settings),
               tooltip: 'Settings',
             )
