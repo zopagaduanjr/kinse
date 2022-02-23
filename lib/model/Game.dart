@@ -7,6 +7,7 @@ part 'Game.g.dart';
 class Game {
   String? id;
   String? name;
+  List<int>? colorScheme;
   int? gameType;
   DateTime? dateSubmitted;
   List<Puzzle>? puzzles;
@@ -14,6 +15,7 @@ class Game {
   Game({
     this.id,
     this.name,
+    this.colorScheme,
     this.gameType,
     this.dateSubmitted,
     this.puzzles,

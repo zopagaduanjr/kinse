@@ -9,6 +9,9 @@ part of 'Game.dart';
 Game _$GameFromJson(Map<String, dynamic> json) => Game(
       id: json['id'] as String?,
       name: json['name'] as String?,
+      colorScheme: (json['colorScheme'] as List<dynamic>?)
+          ?.map((e) => e as int)
+          .toList(),
       gameType: json['gameType'] as int?,
       dateSubmitted: json['dateSubmitted'] == null
           ? null
@@ -22,6 +25,7 @@ Game _$GameFromJson(Map<String, dynamic> json) => Game(
 Map<String, dynamic> _$GameToJson(Game instance) => <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
+      'colorScheme': instance.colorScheme,
       'gameType': instance.gameType,
       'dateSubmitted': instance.dateSubmitted?.toIso8601String(),
       'puzzles': instance.puzzles?.map((e) => e.toJson()).toList(),
