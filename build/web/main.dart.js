@@ -64548,7 +64548,7 @@ A.a8c.prototype={
 $0(){var s,r,q=this.a
 q.x=this.b
 s=q.r=this.c
-if(q.y<2){B.b.eh(q.cx,new A.a87())
+if(q.y<1){B.b.eh(q.cx,new A.a87())
 if(s){s=q.cx
 r=A.Y(s).j("bm<1>")
 q.cx=A.af(new A.bm(s,r),!0,r.j("aG.E"))}}else{B.b.eh(q.cy,new A.a88(q))
@@ -64575,7 +64575,7 @@ A.a8b.prototype={
 $0(){var s,r,q=this.a
 q.x=this.b
 s=q.r=this.c
-if(q.y<2){B.b.eh(q.cx,new A.a85())
+if(q.y<1){B.b.eh(q.cx,new A.a85())
 if(s){s=q.cx
 r=A.Y(s).j("bm<1>")
 q.cx=A.af(new A.bm(s,r),!0,r.j("aG.E"))}}else{B.b.eh(q.cy,new A.a86(q))

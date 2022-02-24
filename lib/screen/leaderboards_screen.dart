@@ -235,7 +235,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
           setState(() {
             leaderboardColumnIndex = index;
             leaderboardAscending = ascending;
-            if (selectedGameOptionIndex < 2) {
+            if (selectedGameOptionIndex < 1) {
               historicalPuzzles.sort((a, b) =>
                   a.millisecondDuration!.compareTo(b.millisecondDuration!));
               if (ascending) {
@@ -257,7 +257,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
           setState(() {
             leaderboardColumnIndex = index;
             leaderboardAscending = ascending;
-            if (selectedGameOptionIndex < 2) {
+            if (selectedGameOptionIndex < 1) {
               historicalPuzzles
                   .sort((a, b) => a.moves!.length.compareTo(b.moves!.length));
               if (ascending) {
