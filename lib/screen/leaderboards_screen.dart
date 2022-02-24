@@ -24,6 +24,9 @@ class LeaderBoardsScreen extends StatefulWidget {
 }
 
 class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
+  final isPurelyWeb = kIsWeb &&
+      (defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.android);
   late Stream<QuerySnapshot> gameStream;
   late StreamSubscription<QuerySnapshot> streamSubscription;
   bool leaderboardAscending = true;
@@ -277,7 +280,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
         return DataRow(
           selected: (selectedPuzzle == puzzle),
           onSelectChanged: (selected) async {
-            if (kIsWeb) {
+            if (isPurelyWeb) {
               if (selectedPuzzle != puzzle) {
                 setState(() {
                   selectedPuzzle = puzzle;
@@ -325,7 +328,7 @@ class _LeaderBoardsScreenState extends State<LeaderBoardsScreen> {
         return DataRow(
           selected: (selectedGame == game),
           onSelectChanged: (selected) async {
-            if (kIsWeb) {
+            if (isPurelyWeb) {
               if (selectedGame != game) {
                 setState(() {
                   selectedGame = game;

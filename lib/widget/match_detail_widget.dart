@@ -23,9 +23,12 @@ class MatchDetailWidget extends StatefulWidget {
 }
 
 class _MatchDetailWidgetState extends State<MatchDetailWidget> {
+  final isPurelyWeb = kIsWeb &&
+      (defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.android);
+  final Stopwatch _stopwatch = Stopwatch();
   late Duration movesIntervalDuration;
   late StreamSubscription streamSubscription;
-  final Stopwatch _stopwatch = Stopwatch();
   bool isPlaying = false;
   int speedIndex = 3,
       speedHistory = 0,
@@ -361,8 +364,8 @@ class _MatchDetailWidgetState extends State<MatchDetailWidget> {
                 : buildPuzzlePicker()),
             Container(
               constraints: BoxConstraints(
-                maxWidth: kIsWeb ? 375 : 175,
-                minHeight: kIsWeb ? 200 : 93,
+                maxWidth: isPurelyWeb ? 375 : 175,
+                minHeight: isPurelyWeb ? 200 : 93,
               ),
               decoration: const BoxDecoration(color: Colors.transparent),
               child: GridView.builder(
