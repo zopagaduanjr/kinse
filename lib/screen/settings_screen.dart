@@ -26,6 +26,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final isPurelyWeb = kIsWeb &&
+      (defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.android);
   late List<GlobalKey> keyList;
   late List<RenderBox> boxList;
   List<int> tilesF = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
@@ -109,13 +112,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     setCurrentUser();
-    if (!kIsWeb) {
+    if (!isPurelyWeb) {
       setState(() {
         keyList = List.generate(16, (index) => GlobalKey());
       });
     }
     WidgetsBinding.instance?.addPostFrameCallback((_) {
-      if (!kIsWeb) {
+      if (!isPurelyWeb) {
         createRenderBox();
       }
     });
@@ -189,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               body: Listener(
                 onPointerSignal: (ps) {
-                  if (kIsWeb) {
+                  if (isPurelyWeb) {
                     if (ps is PointerScrollEvent) {
                       final newOffset =
                           mainScrollController.offset + ps.scrollDelta.dy;
@@ -223,22 +226,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                   },
                   child: SingleChildScrollView(
-                    physics:
-                        kIsWeb ? const NeverScrollableScrollPhysics() : null,
+                    physics: isPurelyWeb
+                        ? const NeverScrollableScrollPhysics()
+                        : null,
                     controller: mainScrollController,
                     child: Padding(
                       padding: const EdgeInsets.only(
                           left: 10, right: 10, bottom: 140),
                       child: Center(
                         child: SizedBox(
-                          width: kIsWeb ? 350 : null,
+                          width: isPurelyWeb ? 350 : null,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const SizedBox(height: 35),
                               _buildNameField(),
-                              (kIsWeb
+                              (isPurelyWeb
                                   ? _buildWebSettings()
                                   : _buildMobileSettings()),
                               const SizedBox(height: 35),
@@ -266,7 +270,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       scrollDirection: Axis.vertical,
                                       itemCount: tiles.length,
                                       itemBuilder: (context, index) {
-                                        return kIsWeb
+                                        return isPurelyWeb
                                             ? _buildWebTile(index)
                                             : _buildMobileTile(index);
                                       },
@@ -560,7 +564,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           await writeUserData();
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            kIsWeb
+            isPurelyWeb
                 ? const SnackBar(
                     content: Text('Changes saved'),
                     duration: Duration(seconds: 3),
@@ -576,7 +580,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Container(
           color: Colors.green,
           height: 30,
-          width: kIsWeb ? 350 : null,
+          width: isPurelyWeb ? 350 : null,
           child: Center(
             child: Text(
               "save".toUpperCase(),

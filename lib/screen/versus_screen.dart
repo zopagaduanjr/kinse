@@ -30,6 +30,11 @@ class VersusScreen extends StatefulWidget {
 }
 
 class _VersusScreenState extends State<VersusScreen> {
+  final isPurelyWeb = kIsWeb &&
+      (defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.android);
+  final Stopwatch _stopwatch = Stopwatch();
+  final Stopwatch _findMatchStopwatch = Stopwatch();
   late List<GlobalKey> keyList;
   late List<RenderBox> boxList;
   late Stream<QuerySnapshot> versusQueueStream;
@@ -77,8 +82,6 @@ class _VersusScreenState extends State<VersusScreen> {
   int opponentCurrentPuzzleIndex = 0;
   Timer? _callbackTimer;
   DateTime? dateStarted;
-  final Stopwatch _stopwatch = Stopwatch();
-  final Stopwatch _findMatchStopwatch = Stopwatch();
   Versus? generatedVersus;
   Game? generatedGame;
   Game? opponentGame;
@@ -184,7 +187,7 @@ class _VersusScreenState extends State<VersusScreen> {
         setState(() {
           opponentGame = Game.fromJson(snapshot.data() as Map<String, dynamic>);
         });
-        if (kIsWeb == true) {
+        if (isPurelyWeb == true) {
           List<int> updatedMoves = List.from(
               opponentGame!.puzzles![opponentCurrentPuzzleIndex].moves!);
           var sublistedMoves = updatedMoves.sublist(opponentMoves.length);
@@ -519,13 +522,13 @@ class _VersusScreenState extends State<VersusScreen> {
   void initState() {
     super.initState();
     setupGame(0);
-    if (!kIsWeb) {
+    if (!isPurelyWeb) {
       setState(() {
         keyList = List.generate(16, (index) => GlobalKey());
       });
     }
     WidgetsBinding.instance?.addPostFrameCallback((_) {
-      if (!kIsWeb) {
+      if (!isPurelyWeb) {
         createRenderBox();
       }
     });
@@ -680,7 +683,7 @@ class _VersusScreenState extends State<VersusScreen> {
         ),
         body: Listener(
           onPointerSignal: (ps) {
-            if (kIsWeb) {
+            if (isPurelyWeb) {
               if (ps is PointerScrollEvent) {
                 final newOffset =
                     mainScrollController.offset + ps.scrollDelta.dy;
@@ -709,7 +712,8 @@ class _VersusScreenState extends State<VersusScreen> {
               }
             },
             child: SingleChildScrollView(
-              physics: kIsWeb ? const NeverScrollableScrollPhysics() : null,
+              physics:
+                  isPurelyWeb ? const NeverScrollableScrollPhysics() : null,
               controller: mainScrollController,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,7 +754,7 @@ class _VersusScreenState extends State<VersusScreen> {
                                 scrollDirection: Axis.vertical,
                                 itemCount: tiles.length,
                                 itemBuilder: (context, index) {
-                                  return kIsWeb
+                                  return isPurelyWeb
                                       ? _buildWebTile(index)
                                       : _buildMobileTile(index);
                                 },
@@ -765,7 +769,7 @@ class _VersusScreenState extends State<VersusScreen> {
                       ],
                     ),
                   ),
-                  (inMatch && kIsWeb
+                  (inMatch && isPurelyWeb
                       ? _buildEnemyTile()
                       : const SizedBox.shrink()),
                 ],
@@ -993,7 +997,7 @@ class _VersusScreenState extends State<VersusScreen> {
   }
 
   _buildEnemyName() {
-    if (kIsWeb == false) {
+    if (isPurelyWeb == false) {
       return Padding(
         padding: const EdgeInsets.only(top: 35, bottom: 12),
         child: Row(

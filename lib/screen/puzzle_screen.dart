@@ -25,6 +25,10 @@ class PuzzleScreen extends StatefulWidget {
 }
 
 class _PuzzleScreenState extends State<PuzzleScreen> {
+  final isPurelyWeb = kIsWeb &&
+      (defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.android);
+  final Stopwatch _stopwatch = Stopwatch();
   late List<GlobalKey> keyList;
   late List<RenderBox> boxList;
   List<int> tilesF = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
@@ -48,8 +52,6 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   ScrollController mainScrollController = ScrollController();
   ScrollController scrollControllerA = ScrollController();
   ScrollController scrollControllerB = ScrollController();
-
-  final Stopwatch _stopwatch = Stopwatch();
 
   Set isSolveable(List<int> puzzle) {
     int inversionCount = 0, row = 5, blankRow = 0;
@@ -269,13 +271,13 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     super.initState();
     readUserData();
     setupGame(0);
-    if (!kIsWeb) {
+    if (!isPurelyWeb) {
       setState(() {
         keyList = List.generate(16, (index) => GlobalKey());
       });
     }
     WidgetsBinding.instance?.addPostFrameCallback((_) {
-      if (!kIsWeb) {
+      if (!isPurelyWeb) {
         createRenderBox();
       }
     });
@@ -362,7 +364,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
       ),
       body: Listener(
         onPointerSignal: (ps) {
-          if (kIsWeb) {
+          if (isPurelyWeb) {
             if (ps is PointerScrollEvent) {
               final newOffset = mainScrollController.offset + ps.scrollDelta.dy;
               if (ps.scrollDelta.dy.isNegative) {
@@ -393,7 +395,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
             }
           },
           child: SingleChildScrollView(
-            physics: kIsWeb ? const NeverScrollableScrollPhysics() : null,
+            physics: isPurelyWeb ? const NeverScrollableScrollPhysics() : null,
             controller: mainScrollController,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -437,7 +439,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                         scrollDirection: Axis.vertical,
                         itemCount: tiles.length,
                         itemBuilder: (context, index) {
-                          return kIsWeb
+                          return isPurelyWeb
                               ? _buildWebTile(index)
                               : _buildMobileTile(index);
                         },
