@@ -470,6 +470,10 @@ class _VersusScreenState extends State<VersusScreen> {
             _stopwatch.stop();
             List<int> movesMade = List.from(specificMoves);
             setState(() {
+              generatedGame!.puzzles![currentPuzzleIndex].name =
+                  widget.currentUser.name;
+              generatedGame!.puzzles![currentPuzzleIndex].gameID =
+                  generatedGame!.id;
               generatedGame!.puzzles![currentPuzzleIndex].millisecondDuration =
                   _stopwatch.elapsedMilliseconds;
               generatedGame!.puzzles![currentPuzzleIndex].dateStarted =
